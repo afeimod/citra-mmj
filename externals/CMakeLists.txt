@@ -88,6 +88,9 @@ target_include_directories(enet INTERFACE ./enet/include)
 # Cubeb
 if (ENABLE_CUBEB)
     set(BUILD_TESTS OFF CACHE BOOL "")
+    # cubeb-test 工具是 BUILD_TOOLS 控制的，不关 BUILD_TOOLS 会编 cubeb-test 链接失败
+    # （因为 cubeb-test 不链 citra-mmj 的 jni_common.cpp，引用不到 JNI hook 实现）
+    set(BUILD_TOOLS OFF CACHE BOOL "")
     add_subdirectory(cubeb EXCLUDE_FROM_ALL)
 endif()
 
