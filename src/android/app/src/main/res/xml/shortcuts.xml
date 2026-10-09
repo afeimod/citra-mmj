@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Citra-MMJ 启动器快捷方式。
+    AndroidManifest.xml 里 <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+    引用了这个文件，但项目原本没提供。这里放一个空 shortcuts 列表占位，让 AAPT 能通过。
+    后续要加 "继续上次游戏" 之类的快捷方式时，往 <shortcuts> 里加 <shortcut> 子元素即可。
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+</shortcuts>
