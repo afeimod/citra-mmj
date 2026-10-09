@@ -16,8 +16,10 @@ android {
         versionName "${getVersion()}"
     }
 
-    // 签名配置：通过可选的 keystore.properties 文件读取。
-    // 文件不存在时，release 构建自动回落到 debug 签名，方便 CI 和本地无 keystore 时直接出包。
+    // 签名配置：用户要求自己用 MT 管理器签名，CI 不签了。
+    // release 构建出 unsigned APK，用户下载后用 MT Manager / apksigner 自己签。
+    // 如果将来要在 CI 内自动签名，把 src/android/keystore.properties 文件放进来即可
+    // （keyAlias / keyPassword / storeFile / storePassword 四个字段），下面会自动启用。
     def keystorePropertiesFile = rootProject.file("keystore.properties")
     def keystoreProperties = new Properties()
     if (keystorePropertiesFile.exists()) {
@@ -26,25 +28,26 @@ android {
 
     signingConfigs {
         release {
+            // 仅当 keystore.properties 文件存在时才配置签名；否则 release 出 unsigned APK
+            // （Gradle 不会自动添加 signingConfig 到 release，除非显式 signingConfig signingConfigs.release）
             if (keystoreProperties.getProperty('storeFile') != null) {
                 keyAlias keystoreProperties.getProperty('keyAlias')
                 keyPassword keystoreProperties.getProperty('keyPassword')
                 storeFile file(keystoreProperties.getProperty('storeFile'))
                 storePassword keystoreProperties.getProperty('storePassword')
-            } else {
-                // 没有提供正式 keystore —— 用 debug key 兜底，CI 也能产出可安装的 APK
-                keyAlias 'androiddebugkey'
-                keyPassword 'android'
-                storeFile new File(System.getProperty('user.home'), '.android/debug.keystore')
-                storePassword 'android'
             }
+            // 没有 keystore.properties 时啥也不设，让 release 走 unsigned 路径
         }
     }
 
     buildTypes {
-        // 默认用上面的 release signingConfig；CI 没正式 key 时用 debug key 兜底
+        // release 构建出 unsigned APK；用户用 MT Manager / apksigner 自己签。
+        // 如果 src/android/keystore.properties 存在，下面会自动启用签名。
         release {
-            signingConfig signingConfigs.release
+            if (rootProject.file("keystore.properties").exists()) {
+                signingConfig signingConfigs.release
+            }
+            // 没有 keystore.properties 时不出 signingConfig → unsigned APK
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

@@ -175,24 +175,6 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
 
-      - name: Pre-generate debug keystore for release signing fallback
-        # app/build.gradle 的 signingConfigs.release 在没有 keystore.properties 时回落到
-        # ~/.android/debug.keystore —— 但 CI runner 上没有这个文件，validateSigningRelease 会失败。
-        # 在 gradle build 之前先生成一个临时的 debug keystore 兜底。
-        run: |
-          mkdir -p "$HOME/.android"
-          KEYSTORE="$HOME/.android/debug.keystore"
-          if [ ! -f "$KEYSTORE" ]; then
-            echo "Generating $KEYSTORE"
-            keytool -genkeypair -keystore "$KEYSTORE" \
-              -alias androiddebugkey -keyalg RSA -keysize 2048 \
-              -validity 10000 -storepass android -keypass android \
-              -dname "CN=Android Debug,O=Android,C=US"
-          else
-            echo "$KEYSTORE already exists"
-          fi
-          ls -la "$KEYSTORE"
-
       - name: Build APK (${{ github.event.inputs.build_type }})
         working-directory: src/android
         env:
@@ -206,27 +188,11 @@ jobs:
             gradle assembleRelease --no-daemon 2>&1 | tee ../../build.log
           fi
 
-      - name: Sign release APK (throwaway CI key)
-        if: success() && github.event.inputs.build_type == 'release'
-        run: |
-          keytool -genkeypair -keystore ci.jks -alias ci -keyalg RSA -keysize 2048 \
-            -validity 10000 -storepass android -keypass android -dname "CN=CI"
-          APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)/apksigner
-          mkdir -p out
-          find src/android -path "*release*" -name "*.apk" | while read -r f; do
-            "$APKSIGNER" sign --ks ci.jks --ks-pass pass:android \
-              --out "out/$(basename "${f%.apk}")-signed.apk" "$f"
-          done
-          ls -la out
-
-      - name: Collect APK artifacts
+      - name: Collect APK artifacts (unsigned, ready for MT Manager)
         if: success()
         run: |
           mkdir -p artifacts
-          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            cp -v out/*.apk artifacts/ 2>/dev/null || true
-          fi
-          # 不管 release / debug，都把构建产物里的 apk 一并复制过来
+          # 找所有构建出来的 APK（release 是 unsigned，用户下载后用 MT Manager 自己签）
           find src/android -name "*.apk" -exec cp -v {} artifacts/ \; 2>/dev/null || true
           ls -la artifacts || true
 
