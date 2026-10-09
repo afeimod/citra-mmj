@@ -2,6 +2,19 @@
 [Bb]uild/
 doc-build/
 
+# CI / local build artifacts
+out/
+artifacts/
+*.jks
+*.keystore
+*.p12
+keystore.properties
+build.log
+ci.jks
+
+# Local dependency directory if user pulls deps locally
+externals/boost_*/
+
 # Generated source files
 src/common/scm_rev.cpp
 .travis.descriptor.json
@@ -12,16 +25,15 @@ src/common/scm_rev.cpp
 .vs/
 .vscode/
 CMakeLists.txt.user*
+local.properties
 
 # *nix related
-# Common convention for backup or temporary files
 *~
 
 # Visual Studio CMake settings
 CMakeSettings.json
 
 # OSX global filetypes
-# Created by Finder or Spotlight in directories for various OS functionality (indexing, etc)
 .DS_Store
 .AppleDouble
 .LSOverride

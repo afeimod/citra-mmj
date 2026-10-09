@@ -37,7 +37,7 @@ const ConfigInfo<Settings::PresentationMode> SCREEN_PRESENTATION_MODE{
 const ConfigInfo<std::string> POST_PROCESSING_SHADER{{"Renderer", "pp_shader_name"}, ""};
 const ConfigInfo<std::string> REMOTE_SHADER_HOST{
     {"Renderer", "remote_shader_host"},
-    "https://raw.githubusercontent.com/weihuoya/citra/master/cache/"};
+    "https://raw.githubusercontent.com/afeimod/citra-mmj/main/cache/"};
 
 // audio
 const ConfigInfo<bool> ENABLE_DSP_LLE{{"Audio", "enable_dsp_lle"}, false};

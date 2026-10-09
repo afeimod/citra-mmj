@@ -1,0 +1,183 @@
+name: Android Build
+
+on:
+  # 只保留手动触发，去掉 push / pull_request 自动触发
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type (release / debug)'
+        required: false
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # 不要使用 submodules: recursive —— .gitmodules 里 4 个 citra-emu 仓库
+          # 已被删除，会拉失败。改用 fetch-deps.sh 把依赖作为普通目录 vendor 进来。
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Configure Git (skip system config)
+        run: |
+          # 容器里 /etc/gitconfig 不可读，跳过它
+          git config --system --add safe.directory '*' || true
+          echo "GIT_CONFIG_NOSYSTEM=1" >> "$GITHUB_ENV"
+
+      - name: Fetch external dependencies
+        run: |
+          bash fetch-deps.sh
+
+          # 钉死 teakra 到 2022 年初的版本（避免上游 API 漂移）
+          git -C externals/teakra fetch -q --unshallow || true
+          git -C externals/teakra checkout -q \
+            "$(git -C externals/teakra rev-list -n1 --before=2022-01-01 origin/HEAD)"
+          echo "teakra pinned at $(git -C externals/teakra rev-parse --short HEAD)"
+
+          # 初始化 cubeb / enet / dynarmic / teakra 自己的嵌套 submodule
+          for d in externals/cubeb externals/enet externals/dynarmic externals/teakra; do
+            [ -d "$d/.git" ] && git -C "$d" submodule update --init --recursive --depth 1 || true
+          done
+
+          # 用 1.83.0 的 boost tarball 替换 submodule（boostorg/boost 自身的
+          # submodule 在 CI 上太慢，单包头文件足够 Citra 编译）
+          rm -rf externals/boost
+          curl -fL https://archives.boost.org/release/1.83.0/source/boost_1_83_0.tar.gz | tar xz
+          mv boost_1_83_0 externals/boost
+          test -f externals/boost/boost/version.hpp
+
+      - name: Pin cryptopp to 8.2.0 tag
+        run: |
+          cd externals/cryptopp/cryptopp
+          git fetch -q --depth 1 origin tag CRYPTOPP_8_2_0
+          git checkout -q CRYPTOPP_8_2_0
+          echo "cryptopp now at: $(git rev-parse --short HEAD)"
+
+      - name: Patch build files
+        run: |
+          set -e
+          # --- cryptopp: 8.2.0 仍用 crc-simd.cpp 命名，CMakeLists 已经匹配，无需改 ---
+          # 仅作为健康检查
+          ls externals/cryptopp/cryptopp/*-simd.cpp || true
+
+          # --- fmt / dynarmic 冲突：把 fmt 提到最前，禁掉 dynarmic 自带的 fmt ---
+          sed -i '/^# libfmt/d; /^add_subdirectory(fmt)/d; /^add_library(fmt::fmt ALIAS fmt)/d' \
+              externals/CMakeLists.txt
+          sed -i '1i add_subdirectory(fmt)' externals/CMakeLists.txt
+          echo "# disabled in CI" > externals/dynarmic/externals/fmt/CMakeLists.txt
+
+          # --- 移除 dynarmic 的 install/export 规则（与 Android NDK 工具链冲突）---
+          sed -i '/^install(EXPORT dynarmicTargets/,/^)/d' externals/dynarmic/CMakeLists.txt || true
+          sed -i 's/^install(TARGETS dynarmic EXPORT dynarmicTargets)/##&/' \
+              externals/dynarmic/CMakeLists.txt || true
+
+          # --- SoundTouch include path（CMakeLists.txt 已经是正确的 BUILD_INTERFACE，
+          #     这里仅做幂等加固，避免上游漂移）---
+          if ! grep -q 'target_include_directories(SoundTouch INTERFACE' \
+              externals/soundtouch/CMakeLists.txt; then
+            sed -i '/^target_include_directories(SoundTouch PUBLIC/,/^\s*)/d' \
+                externals/soundtouch/CMakeLists.txt || true
+            echo 'target_include_directories(SoundTouch INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)' \
+                >> externals/soundtouch/CMakeLists.txt
+          fi
+
+      - name: Ensure oaknut headers exist for dynarmic
+        run: |
+          OAK=externals/dynarmic/externals/oaknut
+          if [ ! -f "$OAK/include/oaknut/code_block.hpp" ]; then
+            echo ">>> oaknut missing, cloning fresh"
+            rm -rf "$OAK"
+            git clone --depth 1 https://github.com/merryhime/oaknut.git "$OAK"
+          fi
+          ls "$OAK/include/oaknut/" | head
+          echo "CPATH=$(pwd)/$OAK/include" >> "$GITHUB_ENV"
+
+      - name: Read Gradle version
+        id: gradle_ver
+        run: |
+          V=$(grep distributionUrl src/android/gradle/wrapper/gradle-wrapper.properties \
+              | sed -E 's/.*gradle-([0-9.]+)-.*/\1/')
+          echo "GRADLE_VERSION=$V" >> "$GITHUB_ENV"
+          echo "Detected Gradle $V"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost || true
+          df -h /
+
+      - name: Accept Android SDK licenses
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+
+      - name: Build APK (${{ github.event.inputs.build_type }})
+        working-directory: src/android
+        env:
+          CI: "0"
+          BUILD_TYPE: ${{ github.event.inputs.build_type }}
+        run: |
+          set -o pipefail
+          if [ "$BUILD_TYPE" = "debug" ]; then
+            gradle assembleDebug --no-daemon 2>&1 | tee ../../build.log
+          else
+            gradle assembleRelease --no-daemon 2>&1 | tee ../../build.log
+          fi
+
+      - name: Sign release APK (throwaway CI key)
+        if: success() && github.event.inputs.build_type == 'release'
+        run: |
+          keytool -genkeypair -keystore ci.jks -alias ci -keyalg RSA -keysize 2048 \
+            -validity 10000 -storepass android -keypass android -dname "CN=CI"
+          APKSIGNER=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)/apksigner
+          mkdir -p out
+          find src/android -path "*release*" -name "*.apk" | while read -r f; do
+            "$APKSIGNER" sign --ks ci.jks --ks-pass pass:android \
+              --out "out/$(basename "${f%.apk}")-signed.apk" "$f"
+          done
+          ls -la out
+
+      - name: Collect APK artifacts
+        if: success()
+        run: |
+          mkdir -p artifacts
+          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
+            cp -v out/*.apk artifacts/ 2>/dev/null || true
+          fi
+          # 不管 release / debug，都把构建产物里的 apk 一并复制过来
+          find src/android -name "*.apk" -exec cp -v {} artifacts/ \; 2>/dev/null || true
+          ls -la artifacts || true
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: citra-mmj-apk
+          path: artifacts/*.apk
+          if-no-files-found: warn
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn

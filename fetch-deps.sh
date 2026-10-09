@@ -14,14 +14,30 @@ fetch(){ # path  url
   rm -rf "$1"; mkdir -p "$(dirname "$1")"
   git clone $D $ARG -q "$2" "$1" 2>&1 | head -2 || echo "  ✘ 失败：$2（手动换地址）"
 }
-fetch externals/boost         https://github.com/boostorg/boost.git
+
+# boost 仓库本身是 submodule forest，CI 上 submodule update 太慢。
+# 直接拉 1.83.0 的 release tarball，单头文件足够 Citra 编译。
+if [ ! -f externals/boost/boost/version.hpp ]; then
+  echo "→ externals/boost (release tarball 1.83.0)"
+  rm -rf externals/boost
+  curl -fL https://archives.boost.org/release/1.83.0/source/boost_1_83_0.tar.gz | tar xz
+  mv boost_1_83_0 externals/boost
+  test -f externals/boost/boost/version.hpp
+else
+  echo "  跳过（已有）externals/boost"
+fi
+
 fetch externals/nihstro       https://github.com/neobrain/nihstro.git
 fetch externals/soundtouch    https://github.com/azahar-emu/soundtouch.git
 fetch externals/catch         https://github.com/catchorg/Catch2.git
 fetch externals/dynarmic      https://github.com/azahar-emu/dynarmic.git
 fetch externals/xbyak         https://github.com/herumi/xbyak.git
 fetch externals/cryptopp/cryptopp https://github.com/weidai11/cryptopp.git
-(cd externals/cryptopp/cryptopp && git fetch -q --depth 1 origin tag CRYPTOPP_8_2_0 && git checkout -q CRYPTOPP_8_2_0)
+# cryptopp 必须钉到 8.2.0 —— 上游 master 的 CMakeLists 与本仓库的
+# externals/cryptopp/CMakeLists.txt 期望的 crc-simd.cpp 命名一致。
+(cd externals/cryptopp/cryptopp && \
+  git fetch -q --depth 1 origin tag CRYPTOPP_8_2_0 && \
+  git checkout -q CRYPTOPP_8_2_0)
 fetch externals/fmt           https://github.com/fmtlib/fmt.git
 fetch externals/enet          https://github.com/lsalzman/enet.git
 fetch externals/inih/inih     https://github.com/benhoyt/inih.git
@@ -31,4 +47,16 @@ fetch externals/discord-rpc   https://github.com/discord/discord-rpc.git
 fetch externals/cpp-jwt       https://github.com/arun11299/cpp-jwt.git
 fetch externals/teakra        https://github.com/wwylele/teakra.git
 fetch externals/libyuv        https://github.com/lemenkov/libyuv.git
-echo "完成。注：boost/cubeb 等自身还有嵌套 submodule，需要时进目录再跑 git submodule update --init"
+
+# dynarmic 的 oaknut 子模块独立拉一份（azahar-emu/dynarmic 的 .gitmodules
+# 在 submodule 索引里指向 merryhime/oaknut，需要保留）
+OAK=externals/dynarmic/externals/oaknut
+if [ ! -f "$OAK/include/oaknut/code_block.hpp" ]; then
+  echo "→ $OAK"
+  rm -rf "$OAK"; mkdir -p "$(dirname "$OAK")"
+  git clone --depth 1 -q https://github.com/merryhime/oaknut.git "$OAK" \
+    2>&1 | head -2 || echo "  ✘ 失败：oaknut"
+fi
+
+echo "完成。注：cubeb / enet / dynarmic / teakra 自身还有嵌套 submodule，"
+echo "    CI 上跑 git submodule update --init --recursive --depth 1 即可。"

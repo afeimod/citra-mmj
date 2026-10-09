@@ -8,7 +8,6 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-
     defaultConfig {
         applicationId "org.citra.emu"
         minSdkVersion 28
@@ -17,18 +16,33 @@ android {
         versionName "${getVersion()}"
     }
 
+    // 签名配置：通过可选的 keystore.properties 文件读取。
+    // 文件不存在时，release 构建自动回落到 debug 签名，方便 CI 和本地无 keystore 时直接出包。
+    def keystorePropertiesFile = rootProject.file("keystore.properties")
+    def keystoreProperties = new Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    }
+
     signingConfigs {
         release {
-            keyAlias 'dolphin-release-key'
-            keyPassword 'zhangwei'
-            storeFile file('D:/Android/android-sign-key/dolphin-release-key.jks')
-            storePassword 'zhangwei'
+            if (keystoreProperties.getProperty('storeFile') != null) {
+                keyAlias keystoreProperties.getProperty('keyAlias')
+                keyPassword keystoreProperties.getProperty('keyPassword')
+                storeFile file(keystoreProperties.getProperty('storeFile'))
+                storePassword keystoreProperties.getProperty('storePassword')
+            } else {
+                // 没有提供正式 keystore —— 用 debug key 兜底，CI 也能产出可安装的 APK
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+                storeFile new File(System.getProperty('user.home'), '.android/debug.keystore')
+                storePassword 'android'
+            }
         }
     }
 
-    // Define build types, which are orthogonal to product flavors.
     buildTypes {
-        // Signed by release key, allowing for upload to Play Store.
+        // 默认用上面的 release signingConfig；CI 没正式 key 时用 debug key 兜底
         release {
             signingConfig signingConfigs.release
             minifyEnabled true
@@ -36,10 +50,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
 
-        // Signed by debug key disallowing distribution on Play Store.
-        // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         debug {
-            // TODO If this is ever modified, change application_id in debug/strings.xml
             applicationIdSuffix ".debug"
             versionNameSuffix '-debug'
             jniDebuggable true
@@ -62,10 +73,10 @@ android {
     defaultConfig {
         externalNativeBuild {
             cmake {
-                arguments "-DENABLE_QT=0", // Don't use QT
-                        "-DENABLE_SDL2=0", // Don't use SDL
+                arguments "-DENABLE_QT=0",        // Don't use QT
+                        "-DENABLE_SDL2=0",        // Don't use SDL
                         "-DENABLE_WEB_SERVICE=0", // Don't use web services
-                        "-DANDROID_ARM_NEON=true", // cryptopp requires Neon to work
+                        "-DANDROID_ARM_NEON=true",// cryptopp requires Neon to work
                         "-DENABLE_CUBEB=1",
                         "-DANDROID_STL=c++_static",
                         "-DCMAKE_BUILD_TYPE=Release",

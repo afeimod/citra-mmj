@@ -171,10 +171,10 @@ public class AboutActivity extends AppCompatActivity implements SurfaceHolder.Ca
         versionInfo.setText(NativeLibrary.GetBuildDate());
 
         Button btnOfficialWebsite = findViewById(R.id.btn_official_website);
-        btnOfficialWebsite.setOnClickListener(view -> openUrl("https://citra-emu.org/"));
+        btnOfficialWebsite.setOnClickListener(view -> openUrl("https://github.com/afeimod/citra-mmj"));
 
         Button btnOpenWeibo = findViewById(R.id.btn_open_weibo);
-        btnOpenWeibo.setOnClickListener(view -> openUrl("https://weibo.com/1725027100"));
+        btnOpenWeibo.setOnClickListener(view -> openUrl("https://github.com/afeimod/citra-mmj/issues"));
 
         new RefreshTask().execute();
     }
