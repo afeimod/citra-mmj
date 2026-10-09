@@ -3,8 +3,8 @@
 // Refer to the license.txt file included.
 
 #include <cstring>
-#include <dynarmic/A32/a32.h>
-#include <dynarmic/A32/context.h>
+#include <dynarmic/interface/A32/a32.h>
+#include <dynarmic/interface/A32/context.h>
 #include "common/assert.h"
 #include "common/microprofile.h"
 #include "core/arm/dynarmic/arm_dynarmic.h"

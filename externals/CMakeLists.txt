@@ -12,6 +12,14 @@ target_include_directories(catch-single-include INTERFACE catch/single_include)
 add_subdirectory(cryptopp)
 
 # Dynarmic
+# dynarmic 钉到 azahar-emu/dynarmic@b3a92ab5（fetch-deps.sh），与 arm_dynarmic.{cpp,h} 兼容
+# dynarmic 的 DetectArchitecture.cmake 用小写 "arm64"/"x86_64"（IN_LIST 检查，区分大小写），
+# 但本仓库根 CMakeLists.txt 设的 ARCHITECTURE 是大写 "ARM64"。这里转小写让 dynarmic 识别。
+if(ARCHITECTURE_ARM64)
+    set(ARCHITECTURE "arm64")
+elseif(ARCHITECTURE_x86_64)
+    set(ARCHITECTURE "x86_64")
+endif()
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_ARM64)
     if (ARCHITECTURE_x86_64)
         # Dynarmic will skip defining xbyak if it's already defined, we then define it below

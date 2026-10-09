@@ -31,6 +31,13 @@ fetch externals/nihstro       https://github.com/neobrain/nihstro.git
 fetch externals/soundtouch    https://github.com/azahar-emu/soundtouch.git
 fetch externals/catch         https://github.com/catchorg/Catch2.git
 fetch externals/dynarmic      https://github.com/azahar-emu/dynarmic.git
+# dynarmic 必须钉到 b3a92ab5（2023-02-27, 最后一个还有 Dynarmic::A32::Context 类的 commit）。
+# 这个 commit 同时拥有 arm64 backend + context.h，与本仓库的 arm_dynarmic.{cpp,h} 完全兼容。
+# 之后的 commit (4ad2dee6, 2023-03-14) 把 Context 类删了，需要重写 arm_dynarmic.cpp。
+(cd externals/dynarmic && \
+  git fetch -q --depth 1 origin b3a92ab54dadd26a0c2a87d2677b80249d2e1a5a && \
+  git checkout -q b3a92ab54dadd26a0c2a87d2677b80249d2e1a5a)
+echo "  dynarmic pinned at: $(git -C externals/dynarmic rev-parse --short HEAD)"
 fetch externals/xbyak         https://github.com/herumi/xbyak.git
 fetch externals/cryptopp/cryptopp https://github.com/weidai11/cryptopp.git
 # cryptopp 不在这里 pin 8.2.0 —— 8.2.0 tag 在 shallow clone 下经常拉不下来，
