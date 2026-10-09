@@ -298,4 +298,14 @@
     <string name="nnf_new_folder_ok">@android:string/ok</string>
     <string name="nnf_new_folder_cancel">@android:string/cancel</string>
 
+    <!-- 缺失字符串补齐（之前 build 报 cannot find symbol） -->
+    <string name="translate_settings">Translate Settings</string>
+    <string name="baidu_ocr_key">Baidu OCR Key</string>
+    <string name="baidu_ocr_secret">Baidu OCR Secret</string>
+    <string name="combo_key_name">Combo Key %1$d</string>
+
+    <!-- fragment_emulation.xml 里用到的字符串（emulation_done / chat 系列新增） -->
+    <string name="chat_hint">Send a message...</string>
+    <string name="chat_send">Send</string>
+
 </resources>

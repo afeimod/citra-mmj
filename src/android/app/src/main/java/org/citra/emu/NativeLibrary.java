@@ -349,6 +349,11 @@ public final class NativeLibrary {
     public static native void InstallCIA(String[] path);
     public static native void HandleImage(int[] pixels, int width, int height);
     public static native void Screenshot(OnScreenshotCompleteListener listener);
+    /**
+     * 设置背景着色器（custom theme zip 里 background.glsl 的内容）。
+     * 调用 native 实现，把 GLSL 字符串传给渲染器替换默认背景 shader。
+     */
+    public static native void SetBackgroundGLSL(String glsl);
 
     /**
      * input

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    EmulationFragment 的布局：游戏渲染表面 + 触屏按键 overlay + 各种 UI 元素。
+    之前项目缺这个 layout 文件，导致 R.layout.fragment_emulation 找不到。
+    EmulationFragment.java 用 findViewById 查这些 id。
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 顶部分辨率遮罩 -->
+    <View
+        android:id="@+id/resize_overlay_top"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_alignParentTop="true"
+        android:background="@android:color/transparent" />
+
+    <!-- 底部分辨率遮罩 -->
+    <View
+        android:id="@+id/resize_overlay_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_alignParentBottom="true"
+        android:background="@android:color/transparent" />
+
+    <!-- 游戏渲染表面 -->
+    <SurfaceView
+        android:id="@+id/surface_emulation"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- 触屏按键 overlay -->
+    <org.citra.emu.overlay.InputOverlay
+        android:id="@+id/surface_input_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:focusable="true"
+        android:focusableInTouchMode="true" />
+
+    <!-- 加载进度条 -->
+    <ProgressBar
+        android:id="@+id/running_progress"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:visibility="gone" />
+
+    <!-- 翻译文字（FMV hack 文本提示） -->
+    <TextView
+        android:id="@+id/translate_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentBottom="true"
+        android:padding="8dp"
+        android:textColor="@android:color/white"
+        android:visibility="gone" />
+
+    <!-- 联机消息 -->
+    <TextView
+        android:id="@+id/netplay_message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/running_progress"
+        android:padding="8dp"
+        android:textColor="@android:color/white"
+        android:visibility="gone" />
+
+    <!-- 控制配置完成按钮 -->
+    <Button
+        android:id="@+id/done_control_config"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:text="@string/emulation_done"
+        android:visibility="gone" />
+
+    <!-- 聊天输入区（联机用） -->
+    <LinearLayout
+        android:id="@+id/chat_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:background="#80000000"
+        android:padding="4dp"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/chat_text_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:inputType="text"
+            android:hint="@string/chat_hint" />
+
+        <Button
+            android:id="@+id/chat_send_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/chat_send" />
+    </LinearLayout>
+
+</RelativeLayout>
