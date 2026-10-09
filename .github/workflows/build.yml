@@ -61,19 +61,32 @@ jobs:
           mv boost_1_83_0 externals/boost
           test -f externals/boost/boost/version.hpp
 
-      - name: Pin cryptopp to 8.2.0 tag
+      - name: Switch cryptopp to master + list crc files
         run: |
+          # fetch-deps.sh 把 cryptopp 拉下来后停在默认分支 master，但本仓库的
+          # externals/cryptopp/CMakeLists.txt 期望的 crc-simd.cpp 是 8.2.0 的旧命名，
+          # master 已经改成 crc_simd.cpp（下划线）。下面这步把 cryptopp 钉到
+          # 最新 master HEAD 并验证，下一步用 sed 把 CMakeLists 的 -simd 改成 _simd。
           cd externals/cryptopp/cryptopp
-          git fetch -q --depth 1 origin tag CRYPTOPP_8_2_0
-          git checkout -q CRYPTOPP_8_2_0
+          git fetch --depth 1 origin master
+          git checkout -q origin/master
           echo "cryptopp now at: $(git rev-parse --short HEAD)"
+          echo '--- crc-related files in cryptopp master ---'
+          ls | grep -i crc || true
 
       - name: Patch build files
         run: |
           set -e
-          # --- cryptopp: 8.2.0 仍用 crc-simd.cpp 命名，CMakeLists 已经匹配，无需改 ---
-          # 仅作为健康检查
-          ls externals/cryptopp/cryptopp/*-simd.cpp || true
+          # --- cryptopp 命名：master 用 crc_simd.cpp（下划线），CMakeLists 期望
+          #     crc-simd.cpp（连字符）。检测后做 sed 替换。---
+          cd externals/cryptopp
+          if ls cryptopp/*_simd.cpp >/dev/null 2>&1 && ! ls cryptopp/*-simd.cpp >/dev/null 2>&1; then
+            echo ">>> Detected underscore naming, patching cryptopp CMakeLists.txt"
+            sed -i 's/-simd\.cpp/_simd.cpp/g' CMakeLists.txt
+          fi
+          echo '--- cryptopp CMakeLists crc refs after patch ---'
+          grep -i 'crc' CMakeLists.txt | head -5 || true
+          cd ../..
 
           # --- fmt / dynarmic 冲突：把 fmt 提到最前，禁掉 dynarmic 自带的 fmt ---
           sed -i '/^# libfmt/d; /^add_subdirectory(fmt)/d; /^add_library(fmt::fmt ALIAS fmt)/d' \
@@ -95,6 +108,12 @@ jobs:
             echo 'target_include_directories(SoundTouch INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)' \
                 >> externals/soundtouch/CMakeLists.txt
           fi
+
+          # --- 健康检查：列出最终要被编译的 simd 文件，确保都存在 ---
+          echo '--- final simd files in CMakeLists ---'
+          grep '_simd\.cpp\|-simd\.cpp' externals/cryptopp/CMakeLists.txt || true
+          echo '--- actual files matching _simd or -simd in cryptopp source ---'
+          ls externals/cryptopp/cryptopp/*simd* 2>/dev/null || true
 
       - name: Ensure oaknut headers exist for dynarmic
         run: |

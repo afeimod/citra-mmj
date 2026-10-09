@@ -33,11 +33,8 @@ fetch externals/catch         https://github.com/catchorg/Catch2.git
 fetch externals/dynarmic      https://github.com/azahar-emu/dynarmic.git
 fetch externals/xbyak         https://github.com/herumi/xbyak.git
 fetch externals/cryptopp/cryptopp https://github.com/weidai11/cryptopp.git
-# cryptopp 必须钉到 8.2.0 —— 上游 master 的 CMakeLists 与本仓库的
-# externals/cryptopp/CMakeLists.txt 期望的 crc-simd.cpp 命名一致。
-(cd externals/cryptopp/cryptopp && \
-  git fetch -q --depth 1 origin tag CRYPTOPP_8_2_0 && \
-  git checkout -q CRYPTOPP_8_2_0)
+# cryptopp 不在这里 pin 8.2.0 —— 8.2.0 tag 在 shallow clone 下经常拉不下来，
+# 改在 CI workflow 里用 master + sed 把 CMakeLists 的 -simd.cpp 改成 _simd.cpp。
 fetch externals/fmt           https://github.com/fmtlib/fmt.git
 fetch externals/enet          https://github.com/lsalzman/enet.git
 fetch externals/inih/inih     https://github.com/benhoyt/inih.git
