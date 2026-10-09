@@ -99,15 +99,20 @@ jobs:
           sed -i 's/^install(TARGETS dynarmic EXPORT dynarmicTargets)/##&/' \
               externals/dynarmic/CMakeLists.txt || true
 
-          # --- SoundTouch include path（CMakeLists.txt 已经是正确的 BUILD_INTERFACE，
-          #     这里仅做幂等加固，避免上游漂移）---
-          if ! grep -q 'target_include_directories(SoundTouch INTERFACE' \
-              externals/soundtouch/CMakeLists.txt; then
-            sed -i '/^target_include_directories(SoundTouch PUBLIC/,/^\s*)/d' \
-                externals/soundtouch/CMakeLists.txt || true
-            echo 'target_include_directories(SoundTouch INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)' \
-                >> externals/soundtouch/CMakeLists.txt
+          # --- SoundTouch include path：新版 azahar-emu/soundtouch 的 CMakeLists
+          #     已经正确地用 PUBLIC 设置了 include path，不需要打 patch。
+          #     如果上游又改回旧的 INTERFACE 写法，这里只做一个幂等加固，把
+          #     INTERFACE 替换成 PUBLIC（INTERFACE 只对消费者生效，会让 SoundTouch
+          #     自己的源文件编译时拿不到 -I.../include，导致 STTypes.h 找不到）。---
+          if grep -q '^target_include_directories(SoundTouch INTERFACE' \
+              externals/soundtouch/CMakeLists.txt 2>/dev/null; then
+            echo ">>> Detected INTERFACE include path in soundtouch, switching to PUBLIC"
+            sed -i 's/^target_include_directories(SoundTouch INTERFACE/target_include_directories(SoundTouch PUBLIC/' \
+                externals/soundtouch/CMakeLists.txt
           fi
+          echo '--- soundtouch include_directories line ---'
+          grep -n 'target_include_directories(SoundTouch' \
+              externals/soundtouch/CMakeLists.txt || true
 
           # --- 健康检查：列出最终要被编译的 simd 文件，确保都存在 ---
           echo '--- final simd files in CMakeLists ---'
