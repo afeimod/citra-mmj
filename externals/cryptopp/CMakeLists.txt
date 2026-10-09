@@ -132,6 +132,7 @@ set(cryptopp_SOURCES
         cryptopp/integer.cpp
 
         cryptopp/algparam.cpp
+        cryptopp/allocate.cpp
         cryptopp/asn.cpp
         cryptopp/authenc.cpp
         cryptopp/base64.cpp
