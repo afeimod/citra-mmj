@@ -120,6 +120,28 @@ jobs:
           echo '--- actual files matching _simd or -simd in cryptopp source ---'
           ls externals/cryptopp/cryptopp/*simd* 2>/dev/null || true
 
+          # --- cubeb JNI 重复符号修复 ---
+          # cubeb 的 cubeb-jni-instances.h 默认 inline 定义了 cubeb_get_jni_env_for_thread()
+          # 和 cubeb_jni_get_context_instance() 返回 nullptr；但本仓库 src/android/jni/jni_common.cpp
+          # 也定义了同名函数返回真实的 JNIEnv / Context。链接时 ld.lld 报 duplicate symbol。
+          # 把 header 改成只声明不定义，让 jni_common.cpp 提供实际实现。
+          printf '%s\n' \
+            '#ifndef _CUBEB_JNI_INSTANCES_H_' \
+            '#define _CUBEB_JNI_INSTANCES_H_' \
+            '' \
+            '#include <jni.h>' \
+            '' \
+            '// Declarations only - actual definitions are provided by citra-mmj JNI layer' \
+            '// (src/android/jni/jni_common.cpp) so cubeb_stream_get_position() can use the' \
+            '// real Android JVM context instead of cubeb default nullptr.' \
+            'JNIEnv* cubeb_get_jni_env_for_thread();' \
+            'jobject cubeb_jni_get_context_instance();' \
+            '' \
+            '#endif //_CUBEB_JNI_INSTANCES_H_' \
+            > externals/cubeb/src/cubeb-jni-instances.h
+          echo '--- patched cubeb-jni-instances.h ---'
+          cat externals/cubeb/src/cubeb-jni-instances.h
+
       - name: Ensure oaknut headers exist for dynarmic
         run: |
           OAK=externals/dynarmic/externals/oaknut
