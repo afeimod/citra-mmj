@@ -465,22 +465,16 @@ public class RunningSettingDialog extends DialogFragment {
 
         @Override
         public void onCheckedChanged(RadioGroup group, int checkedId) {
-            switch (checkedId) {
-                case R.id.radio0:
-                    mItem.setValue(0);
-                    break;
-                case R.id.radio1:
-                    mItem.setValue(1);
-                    break;
-                case R.id.radio2:
-                    mItem.setValue(2);
-                    break;
-                case R.id.radio3:
-                    mItem.setValue(3);
-                    break;
-                default:
-                    mItem.setValue(0);
-                    break;
+            if (checkedId == R.id.radio0) {
+                mItem.setValue(0);
+            } else if (checkedId == R.id.radio1) {
+                mItem.setValue(1);
+            } else if (checkedId == R.id.radio2) {
+                mItem.setValue(2);
+            } else if (checkedId == R.id.radio3) {
+                mItem.setValue(3);
+            } else {
+                mItem.setValue(0);
             }
         }
     }

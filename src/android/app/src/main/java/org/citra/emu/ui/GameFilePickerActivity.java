@@ -76,10 +76,9 @@ public final class GameFilePickerActivity extends FilePickerActivity implements 
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.menu_current_directory:
-                showEditorDialog();
-                return true;
+        if (item.getItemId() == R.id.menu_current_directory) {
+            showEditorDialog();
+            return true;
         }
 
         return false;

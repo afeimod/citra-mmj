@@ -394,35 +394,29 @@ public final class MainActivity extends AppCompatActivity {
 
         MaterialToolbar toolbar = findViewById(R.id.top_appbar);
         toolbar.setOnMenuItemClickListener(menuItem -> {
-            switch (menuItem.getItemId()) {
-                case R.id.menu_add_directory:
-                    FileBrowserHelper.openDirectoryPicker(this);
-                    return true;
-
-                case R.id.menu_settings_core:
-                    SettingsActivity.launch(this, MenuTag.CONFIG, "", "");
-                    return true;
-
-                case R.id.menu_input_binding:
-                    SettingsActivity.launch(this, MenuTag.INPUT, "", "");
-                    return true;
-
-                case R.id.menu_combo_key:
-                    ComboKeyActivity.launch(this);
-                    return true;
-
-                case R.id.menu_install_cia:
-                    FileBrowserHelper.openFilePicker(this);
-                    return true;
-
-                case R.id.menu_multiplayer:
-                    RunningSettingDialog dialog = RunningSettingDialog.newInstance(RunningSettingDialog.MENU_MULTIPLAYER);
-                    dialog.show(getSupportFragmentManager(), "RunningSettingDialog");
-                    return true;
-
-                case R.id.menu_refresh:
-                    refreshLibrary();
-                    return true;
+            int id = menuItem.getItemId();
+            if (id == R.id.menu_add_directory) {
+                FileBrowserHelper.openDirectoryPicker(this);
+                return true;
+            } else if (id == R.id.menu_settings_core) {
+                SettingsActivity.launch(this, MenuTag.CONFIG, "", "");
+                return true;
+            } else if (id == R.id.menu_input_binding) {
+                SettingsActivity.launch(this, MenuTag.INPUT, "", "");
+                return true;
+            } else if (id == R.id.menu_combo_key) {
+                ComboKeyActivity.launch(this);
+                return true;
+            } else if (id == R.id.menu_install_cia) {
+                FileBrowserHelper.openFilePicker(this);
+                return true;
+            } else if (id == R.id.menu_multiplayer) {
+                RunningSettingDialog dialog = RunningSettingDialog.newInstance(RunningSettingDialog.MENU_MULTIPLAYER);
+                dialog.show(getSupportFragmentManager(), "RunningSettingDialog");
+                return true;
+            } else if (id == R.id.menu_refresh) {
+                refreshLibrary();
+                return true;
             }
             return false;
         });
