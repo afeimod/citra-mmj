@@ -175,6 +175,24 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
 
+      - name: Pre-generate debug keystore for release signing fallback
+        # app/build.gradle 的 signingConfigs.release 在没有 keystore.properties 时回落到
+        # ~/.android/debug.keystore —— 但 CI runner 上没有这个文件，validateSigningRelease 会失败。
+        # 在 gradle build 之前先生成一个临时的 debug keystore 兜底。
+        run: |
+          mkdir -p "$HOME/.android"
+          KEYSTORE="$HOME/.android/debug.keystore"
+          if [ ! -f "$KEYSTORE" ]; then
+            echo "Generating $KEYSTORE"
+            keytool -genkeypair -keystore "$KEYSTORE" \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+          else
+            echo "$KEYSTORE already exists"
+          fi
+          ls -la "$KEYSTORE"
+
       - name: Build APK (${{ github.event.inputs.build_type }})
         working-directory: src/android
         env:
