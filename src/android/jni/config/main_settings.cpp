@@ -96,10 +96,14 @@ const ConfigInfo<std::string> CIRCLE_PAD_UP{{"Controls", "circle_pad_up"}, "code
 const ConfigInfo<std::string> CIRCLE_PAD_DOWN{{"Controls", "circle_pad_down"}, "code:1,dir:+"};
 const ConfigInfo<std::string> CIRCLE_PAD_LEFT{{"Controls", "circle_pad_left"}, "code:0,dir:-"};
 const ConfigInfo<std::string> CIRCLE_PAD_RIGHT{{"Controls", "circle_pad_right"}, "code:0,dir:+"};
+const ConfigInfo<std::string> CIRCLE_PAD_X{{"Controls", "circle_pad_x"}, "code:0"};
+const ConfigInfo<std::string> CIRCLE_PAD_Y{{"Controls", "circle_pad_y"}, "code:1"};
 const ConfigInfo<std::string> C_STICK_UP{{"Controls", "c_stick_up"}, "code:14,dir:-"};
 const ConfigInfo<std::string> C_STICK_DOWN{{"Controls", "c_stick_down"}, "code:14,dir:+"};
 const ConfigInfo<std::string> C_STICK_LEFT{{"Controls", "c_stick_left"}, "code:11,dir:-"};
 const ConfigInfo<std::string> C_STICK_RIGHT{{"Controls", "c_stick_right"}, "code:11,dir:+"};
+const ConfigInfo<std::string> C_STICK_X{{"Controls", "c_stick_x"}, "code:11"};
+const ConfigInfo<std::string> C_STICK_Y{{"Controls", "c_stick_y"}, "code:14"};
 const ConfigInfo<std::string> COMBO_KEY_0{{"Controls", "combo_key_0"}, ""};
 const ConfigInfo<std::string> COMBO_KEY_1{{"Controls", "combo_key_1"}, ""};
 const ConfigInfo<std::string> COMBO_KEY_2{{"Controls", "combo_key_2"}, ""};
