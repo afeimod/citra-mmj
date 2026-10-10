@@ -64,10 +64,22 @@ public final class CitraDirectory {
         }
 
         File externalPath = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !Environment.isExternalStorageLegacy()) {
-            sInitState = INIT_SAF;
-            externalPath = context.getExternalFilesDir(null);
+        // Android 11+：如果用户授权了 MANAGE_EXTERNAL_STORAGE（isExternalStorageManager()），
+        // 直接用 /sdcard/ 当根目录，这样 citra-emu/ 创建在 /sdcard/citra-emu/，
+        // 用户放的 3DS ROM 可以直接被识别。
+        // 参考 afeimod/NesStation 的处理逻辑。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                // 有 MANAGE_EXTERNAL_STORAGE 权限 → 用 /sdcard/ 根目录
+                sInitState = INIT_LEGACY;
+                externalPath = Environment.getExternalStorageDirectory();
+            } else {
+                // 没权限 → fallback 到 app 私有目录（/sdcard/Android/data/org.citra.emu/files/）
+                sInitState = INIT_SAF;
+                externalPath = context.getExternalFilesDir(null);
+            }
         } else if (PermissionsHandler.hasWriteAccess(context)) {
+            // Android 10 及以下：用 WRITE_EXTERNAL_STORAGE + /sdcard/
             if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())) {
                 sInitState = INIT_LEGACY;
                 externalPath = Environment.getExternalStorageDirectory();

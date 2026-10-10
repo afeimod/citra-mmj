@@ -99,10 +99,12 @@
             android:inputType="text"
             android:hint="@string/chat_hint" />
 
-        <Button
+        <ImageButton
             android:id="@+id/chat_send_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:src="@android:drawable/ic_menu_send"
+            android:contentDescription="@string/chat_send"
             android:text="@string/chat_send" />
     </LinearLayout>
 

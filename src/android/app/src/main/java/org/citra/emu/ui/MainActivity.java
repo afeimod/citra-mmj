@@ -474,6 +474,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        checkAesKeys();
         if (mDirToAdd != null) {
             mTabIndex = 0;
             new RefreshTask(mDirToAdd).execute(false);
@@ -692,6 +693,29 @@ public final class MainActivity extends AppCompatActivity {
         @Override
         public int getItemCount() {
             return 3;
+        }
+    }
+
+    private boolean mAesKeysChecked = false;
+
+    /**
+     * 检查 AES 密钥文件是否存在。Citra 需要 aes_keys.txt 来解密 3DS ROM（.3ds/.cci/.cxi）。
+     * 文件应放在 citra-emu/sysdata/aes_keys.txt。
+     * 不存在时弹一次性提示，告诉用户怎么放。
+     */
+    private void checkAesKeys() {
+        if (mAesKeysChecked) return;
+        mAesKeysChecked = true;
+        String userDir = org.citra.emu.utils.CitraDirectory.getUserDirectory();
+        if (userDir == null || userDir.isEmpty()) return;
+        java.io.File keysFile = new java.io.File(userDir, "sysdata/aes_keys.txt");
+        if (!keysFile.exists()) {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.aes_keys_missing_title)
+                .setMessage(R.string.aes_keys_missing_message)
+                .setPositiveButton(android.R.string.ok, null)
+                .setCancelable(false)
+                .show();
         }
     }
 }

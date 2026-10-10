@@ -311,4 +311,8 @@
     <!-- 首次启动权限引导：MANAGE_EXTERNAL_STORAGE（Android 11+） -->
     <string name="manage_storage_permission_needed">Citra 需要访问存储空间才能读取你设备上的 3DS 游戏 ROM 文件（.3ds / .cci / .cxi / .3dsx / .cia 等）。\n\n点击「确定」会跳转到系统的「所有文件访问权限」设置页面，请为 Citra 开启该权限后返回。</string>
 
+    <!-- AES 密钥缺失提示 -->
+    <string name="aes_keys_missing_title">AES 密钥缺失</string>
+    <string name="aes_keys_missing_message">Citra 需要 aes_keys.txt 密钥文件才能读取加密的 3DS ROM（.3ds / .cci / .cxi / .cia）。\n\n请将 aes_keys.txt 文件放到以下目录：\n\n/sdcard/citra-emu/sysdata/aes_keys.txt\n\n（如果使用 SAF 模式则为 /sdcard/Android/data/org.citra.emu/files/citra-emu/sysdata/aes_keys.txt）\n\n放好后重启 Citra 即可。</string>
+
 </resources>
