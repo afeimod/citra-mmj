@@ -142,6 +142,10 @@ void MemorySystem::UnregisterPageTable(PageTable* page_table) {
 
 template <typename T>
 T MemorySystem::Read(const VAddr vaddr) {
+    if (!impl->current_page_table) {
+        LOG_ERROR(HW_Memory, "Read{} @ 0x{:08X} with null page table!", sizeof(T) * 8, vaddr);
+        return 0;
+    }
     const u8* page_pointer = impl->current_page_table->pointers[vaddr >> PAGE_BITS];
     if (page_pointer) {
         // NOTE: Avoid adding any extra logic to this fast-path block
@@ -171,6 +175,10 @@ T MemorySystem::Read(const VAddr vaddr) {
 
 template <typename T>
 void MemorySystem::Write(const VAddr vaddr, const T data) {
+    if (!impl->current_page_table) {
+        LOG_ERROR(HW_Memory, "Write{} @ 0x{:08X} with null page table!", sizeof(T) * 8, vaddr);
+        return;
+    }
     u8* page_pointer = impl->current_page_table->pointers[vaddr >> PAGE_BITS];
     if (page_pointer) {
         // NOTE: Avoid adding any extra logic to this fast-path block

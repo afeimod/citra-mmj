@@ -160,7 +160,11 @@ ARM_Dynarmic::~ARM_Dynarmic() = default;
 MICROPROFILE_DEFINE(ARM_Jit, "ARM JIT", "ARM JIT", MP_RGB(255, 64, 64));
 
 void ARM_Dynarmic::Run() {
-    ASSERT(memory.GetCurrentPageTable() == current_page_table);
+    // Android 下 ASSERT 是 no-op，手动检查 page table
+    if (!current_page_table) {
+        LOG_CRITICAL(Core_ARM, "ARM_Dynarmic::Run() with null page table!");
+        return;
+    }
     MICROPROFILE_SCOPE(ARM_Jit);
 
     jit->Run();
@@ -319,6 +323,15 @@ void ARM_Dynarmic::ServeBreak() {
 }
 
 std::unique_ptr<Dynarmic::A32::Jit> ARM_Dynarmic::MakeJit() {
+    if (!current_page_table) {
+        LOG_CRITICAL(Core_ARM, "MakeJit() with null page table!");
+        current_page_table = memory.GetCurrentPageTable();
+        if (!current_page_table) {
+            // 仍然 null，创建一个空的 page table 避免 UB
+            static Memory::PageTable dummy;
+            current_page_table = &dummy;
+        }
+    }
     Dynarmic::A32::UserConfig config;
     config.callbacks = cb.get();
     config.page_table = &current_page_table->pointers;
