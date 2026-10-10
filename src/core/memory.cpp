@@ -336,15 +336,18 @@ void MemorySystem::RasterizerMarkRegionCached(PAddr start, u32 size, bool cached
 }
 
 void RasterizerFlushRegion(PAddr start, u32 size) {
-    VideoCore::Rasterizer()->FlushRegion(start, size);
+    auto* rasterizer = VideoCore::Rasterizer();
+    if (rasterizer) rasterizer->FlushRegion(start, size);
 }
 
 void RasterizerInvalidateRegion(PAddr start, u32 size) {
-    VideoCore::Rasterizer()->InvalidateRegion(start, size);
+    auto* rasterizer = VideoCore::Rasterizer();
+    if (rasterizer) rasterizer->InvalidateRegion(start, size);
 }
 
 void RasterizerFlushAndInvalidateRegion(PAddr start, u32 size) {
-    VideoCore::Rasterizer()->FlushAndInvalidateRegion(start, size);
+    auto* rasterizer = VideoCore::Rasterizer();
+    if (rasterizer) rasterizer->FlushAndInvalidateRegion(start, size);
 }
 
 void RasterizerFlushVirtualRegion(VAddr start, u32 size, FlushMode mode) {
@@ -362,6 +365,7 @@ void RasterizerFlushVirtualRegion(VAddr start, u32 size, FlushMode mode) {
         u32 overlap_size = overlap_end - overlap_start;
 
         auto* rasterizer = VideoCore::Rasterizer();
+        if (!rasterizer) return;
         switch (mode) {
         case FlushMode::Flush:
             rasterizer->FlushRegion(physical_start, overlap_size);
