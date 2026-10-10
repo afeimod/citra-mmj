@@ -17,7 +17,6 @@
     <integer name="BUTTON_X_X">80</integer>
     <integer name="BUTTON_X_Y">50</integer>
     <integer name="BUTTON_Y_X">60</integer>
-    <integer name="BUTTON_Y_X">60</integer>
     <integer name="BUTTON_Y_Y">60</integer>
 
     <!-- START / SELECT（底部中间偏右/左） -->
