@@ -1,59 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    InputOverlay 默认按键坐标（百分比 0-100，0/100 = 左/右或上/下边缘）。
-    InputOverlay.java 用 res.getInteger(x) / 100.0f 当 posX，单位是屏幕宽高百分比。
-    这些值只是默认起点；用户可以在应用内编辑模式拖动调整，会写到 SharedPreferences 覆盖。
+    InputOverlay 默认按键坐标。
+    公式: drawableX = (screenWidth/2) * (1 + posX) - buttonWidth/2
+    其中 posX = res.getInteger(R.integer.XXX) / 100.0f
+    所以: posX=0 → 屏幕中心, posX=-100 → 最左, posX=100 → 最右
+    同理 posY: 0 → 中心, -100 → 最上, 100 → 最下
 -->
 <resources>
     <integer name="game_grid_columns">1</integer>
 
-    <!-- A/B/X/Y 按键组（右下角） -->
-    <integer name="BUTTON_A_X">85</integer>
+    <!-- A/B/X/Y 按键组（右下角，A 在最右下） -->
+    <integer name="BUTTON_A_X">80</integer>
     <integer name="BUTTON_A_Y">80</integer>
-    <integer name="BUTTON_B_X">72</integer>
-    <integer name="BUTTON_B_Y">88</integer>
-    <integer name="BUTTON_X_X">85</integer>
-    <integer name="BUTTON_X_Y">68</integer>
-    <integer name="BUTTON_Y_X">72</integer>
-    <integer name="BUTTON_Y_Y">76</integer>
+    <integer name="BUTTON_B_X">60</integer>
+    <integer name="BUTTON_B_Y">90</integer>
+    <integer name="BUTTON_X_X">80</integer>
+    <integer name="BUTTON_X_Y">50</integer>
+    <integer name="BUTTON_Y_X">60</integer>
+    <integer name="BUTTON_Y_X">60</integer>
+    <integer name="BUTTON_Y_Y">60</integer>
 
-    <!-- START / SELECT（底部中间偏右） -->
-    <integer name="BUTTON_START_X">65</integer>
+    <!-- START / SELECT（底部中间偏右/左） -->
+    <integer name="BUTTON_START_X">30</integer>
     <integer name="BUTTON_START_Y">90</integer>
-    <integer name="BUTTON_SELECT_X">35</integer>
+    <integer name="BUTTON_SELECT_X">-30</integer>
     <integer name="BUTTON_SELECT_Y">90</integer>
 
-    <!-- L / R / ZL / ZR 肩键（顶部） -->
-    <integer name="TRIGGER_L_X">15</integer>
-    <integer name="TRIGGER_L_Y">8</integer>
-    <integer name="TRIGGER_R_X">85</integer>
-    <integer name="TRIGGER_R_Y">8</integer>
-    <integer name="TRIGGER_ZL_X">15</integer>
-    <integer name="TRIGGER_ZL_Y">16</integer>
-    <integer name="TRIGGER_ZR_X">85</integer>
-    <integer name="TRIGGER_ZR_Y">16</integer>
+    <!-- L / R / ZL / ZR 肩键（顶部左/右） -->
+    <integer name="TRIGGER_L_X">-80</integer>
+    <integer name="TRIGGER_L_Y">-85</integer>
+    <integer name="TRIGGER_R_X">80</integer>
+    <integer name="TRIGGER_R_Y">-85</integer>
+    <integer name="TRIGGER_ZL_X">-80</integer>
+    <integer name="TRIGGER_ZL_Y">-65</integer>
+    <integer name="TRIGGER_ZR_X">80</integer>
+    <integer name="TRIGGER_ZR_Y">-65</integer>
 
     <!-- HOME / DEBUG 按钮（顶部右上角） -->
     <integer name="BUTTON_HOME_X">90</integer>
-    <integer name="BUTTON_HOME_Y">4</integer>
+    <integer name="BUTTON_HOME_Y">-95</integer>
 
     <!-- D-Pad（左下角） -->
-    <integer name="PAD_MAIN_X">15</integer>
-    <integer name="PAD_MAIN_Y">75</integer>
+    <integer name="PAD_MAIN_X">-80</integer>
+    <integer name="PAD_MAIN_Y">70</integer>
 
     <!-- 左摇杆（CirclePad，左下中间） -->
-    <integer name="STICK_MAIN_X">30</integer>
-    <integer name="STICK_MAIN_Y">70</integer>
+    <integer name="STICK_MAIN_X">-50</integer>
+    <integer name="STICK_MAIN_Y">60</integer>
 
     <!-- 右摇杆（C-Stick，右上中间） -->
-    <integer name="STICK_RIGHT_X">70</integer>
-    <integer name="STICK_RIGHT_Y">30</integer>
+    <integer name="STICK_RIGHT_X">50</integer>
+    <integer name="STICK_RIGHT_Y">-40</integer>
 
     <!-- 组合键 1/2/3 -->
-    <integer name="COMBO_KEY1_X">15</integer>
-    <integer name="COMBO_KEY1_Y">45</integer>
-    <integer name="COMBO_KEY2_X">50</integer>
-    <integer name="COMBO_KEY2_Y">4</integer>
-    <integer name="COMBO_KEY3_X">85</integer>
-    <integer name="COMBO_KEY3_Y">45</integer>
+    <integer name="COMBO_KEY1_X">-80</integer>
+    <integer name="COMBO_KEY1_Y">10</integer>
+    <integer name="COMBO_KEY2_X">0</integer>
+    <integer name="COMBO_KEY2_Y">-95</integer>
+    <integer name="COMBO_KEY3_X">80</integer>
+    <integer name="COMBO_KEY3_Y">10</integer>
 </resources>

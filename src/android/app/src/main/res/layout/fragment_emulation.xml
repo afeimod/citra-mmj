@@ -9,20 +9,18 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 顶部分辨率遮罩（自定义 ResizeOverlay，可拖动调整屏幕区域） -->
+    <!-- 顶部分辨率遮罩（自定义布局拖动区域） -->
     <org.citra.emu.overlay.ResizeOverlay
         android:id="@+id/resize_overlay_top"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_alignParentTop="true"
+        android:layout_height="match_parent"
         android:background="@android:color/transparent" />
 
     <!-- 底部分辨率遮罩 -->
     <org.citra.emu.overlay.ResizeOverlay
         android:id="@+id/resize_overlay_bottom"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_alignParentBottom="true"
+        android:layout_height="match_parent"
         android:background="@android:color/transparent" />
 
     <!-- 游戏渲染表面 -->

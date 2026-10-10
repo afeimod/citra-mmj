@@ -565,7 +565,7 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_StopEmulation(JNIEnv* en
 JNIEXPORT jintArray JNICALL Java_org_citra_emu_NativeLibrary_getRunningSettings(JNIEnv* env,
                                                                                 jclass obj) {
     int i = 0;
-    int settings[13];
+    int settings[14];
 
     // get settings
     settings[i++] = Settings::values.core_ticks_hack > 0;
@@ -576,6 +576,7 @@ JNIEXPORT jintArray JNICALL Java_org_citra_emu_NativeLibrary_getRunningSettings(
     settings[i++] = Settings::values.use_hw_gs;
     settings[i++] = Settings::values.shadow_rendering;
     settings[i++] = Settings::values.async_shader_compile;
+    settings[i++] = Settings::values.use_compatible_mode;
     settings[i++] = std::min(std::max(Settings::values.resolution_factor - 1, 0), 3);
     settings[i++] = static_cast<int>(Settings::values.layout_option);
     settings[i++] = static_cast<int>(Settings::values.shaders_accurate_mul);
@@ -622,6 +623,10 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setRunningSettings(JNIEn
     // Async Shader Compile
     Settings::values.async_shader_compile = settings[i++] > 0;
     Config::Set(Config::ASYNC_SHADER_COMPILE, Settings::values.async_shader_compile);
+
+    // Use Compatible Mode
+    Settings::values.use_compatible_mode = settings[i++] > 0;
+    Config::Set(Config::USE_COMPATIBLE_MODE, Settings::values.use_compatible_mode);
 
     // Scale Factor
     Settings::values.resolution_factor = settings[i++] + 1;
