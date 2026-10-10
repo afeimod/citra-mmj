@@ -405,8 +405,38 @@ public final class EmulationFragment extends Fragment implements SurfaceHolder.C
     private void runWithValidSurface() {
         mRunWhenSurfaceIsValid = false;
         if (mState == EmulationState.STOPPED) {
+            // 检查 AES 密钥是否存在 —— 没有密钥直接跑加密 ROM 会 native crash
+            String userDir = org.citra.emu.utils.CitraDirectory.getUserDirectory();
+            if (userDir != null && !userDir.isEmpty()) {
+                java.io.File keysFile = new java.io.File(userDir, "sysdata/aes_keys.txt");
+                if (!keysFile.exists()) {
+                    new android.app.AlertDialog.Builder(getActivity())
+                        .setTitle(R.string.aes_keys_missing_title)
+                        .setMessage(R.string.aes_keys_missing_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+                    return;
+                }
+            }
             NativeLibrary.SurfaceChanged(mSurface);
-            new Thread(() -> NativeLibrary.Run(mPath), "NativeEmulation").start();
+            new Thread(() -> {
+                try {
+                    NativeLibrary.Run(mPath);
+                } catch (Throwable t) {
+                    new Handler(getMainLooper()).post(() -> {
+                        if (getActivity() != null) {
+                            new android.app.AlertDialog.Builder(getActivity())
+                                .setTitle("Emulation Error")
+                                .setMessage("Native crash: " + t.getMessage() +
+                                    "\n\nThis usually means the ROM is encrypted and AES keys are missing, " +
+                                    "or the ROM format is not supported.")
+                                .setPositiveButton(android.R.string.ok,
+                                    (d, w) -> getActivity().finish())
+                                .show();
+                        }
+                    });
+                }
+            }, "NativeEmulation").start();
         } else if (mState == EmulationState.PAUSED) {
             NativeLibrary.SurfaceChanged(mSurface);
             NativeLibrary.ResumeEmulation();
