@@ -25,7 +25,13 @@ public final class FileBrowserHelper {
     public static final int REQUEST_OPEN_DOCUMENT = 4;
 
     public static void openDirectoryPicker(Activity activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // 同 openFilePicker：有 MANAGE_EXTERNAL_STORAGE 时用老式选择器（返回真实路径）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                openDocumentTree(activity, REQUEST_OPEN_DOCUMENT_TREE);
+                return;
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             if (!Environment.isExternalStorageLegacy()) {
                 openDocumentTree(activity, REQUEST_OPEN_DOCUMENT_TREE);
                 return;
@@ -45,7 +51,16 @@ public final class FileBrowserHelper {
     }
 
     public static void openFilePicker(Activity activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Android 11+：有 MANAGE_EXTERNAL_STORAGE 权限时用老式文件选择器（返回真实文件路径），
+        // 不用 SAF（SAF 返回 content:// URI，native InstallCIA 打不开）。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                // 没权限 → 用 SAF（content:// URI）
+                openDocument(activity, REQUEST_OPEN_DOCUMENT);
+                return;
+            }
+            // 有权限 → 用老式文件选择器（真实文件路径）
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             if (!Environment.isExternalStorageLegacy()) {
                 openDocument(activity, REQUEST_OPEN_DOCUMENT);
                 return;
