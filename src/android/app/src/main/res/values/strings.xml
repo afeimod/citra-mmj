@@ -21,6 +21,12 @@
     <string name="create_success">Create Success!</string>
     <string name="create_failed">Create Failed!</string>
     <string name="cia_install_success">Install Success!</string>
+    <string name="cia_install_error">Install failed: %1$s</string>
+    <string name="cia_install_error_open_failed">could not open the file</string>
+    <string name="cia_install_error_not_found">file not found (the SAF URI could not be resolved)</string>
+    <string name="cia_install_error_aborted">installation aborted (disk full or read error?)</string>
+    <string name="cia_install_error_invalid">invalid CIA file</string>
+    <string name="cia_install_error_encrypted">CIA is encrypted, missing aes_keys.txt (citra-emu/sysdata)</string>
     <string name="delete_success">Delete Success!</string>
     <string name="copy_success">Copy Success!</string>
     <string name="keyboard_please_input">Please Input:</string>

@@ -21,6 +21,12 @@
     <string name="create_success">创建成功！</string>
     <string name="create_failed">创建失败！</string>
     <string name="cia_install_success">安装成功！</string>
+    <string name="cia_install_error">安装失败：%1$s</string>
+    <string name="cia_install_error_open_failed">无法打开文件</string>
+    <string name="cia_install_error_not_found">找不到文件（SAF 路径无法解析）</string>
+    <string name="cia_install_error_aborted">安装中断（磁盘空间不足或读取错误？）</string>
+    <string name="cia_install_error_invalid">无效的 CIA 文件</string>
+    <string name="cia_install_error_encrypted">CIA 已加密，缺少 aes_keys.txt（放到 citra-emu/sysdata）</string>
     <string name="delete_success">删除成功！</string>
     <string name="copy_success">复制成功！</string>
     <string name="keyboard_please_input">请输入：</string>

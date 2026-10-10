@@ -261,7 +261,7 @@ public:
     }
 
     u64 Tell() const {
-        m_file->Tell();
+        return m_file->Tell();
     }
 
     u64 GetSize() const {

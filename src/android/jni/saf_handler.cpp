@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
+#include <cerrno>
 
 #include "saf_handler.h"
 #include "jni_common.h"
@@ -23,11 +24,41 @@ public:
     }
 
     std::size_t Read(void* buf, std::size_t size, std::size_t count) override {
-        return read(m_fd, buf, size * count);
+        // read() may return fewer bytes than requested (short read), especially on
+        // FUSE-backed fds used by SAF. Loop until we got everything or hit EOF,
+        // otherwise CIA installation would read truncated data.
+        u8* dst = static_cast<u8*>(buf);
+        const std::size_t total = size * count;
+        std::size_t done = 0;
+        while (done < total) {
+            const ssize_t n = read(m_fd, dst + done, total - done);
+            if (n < 0) {
+                if (errno == EINTR)
+                    continue;
+                break;
+            }
+            if (n == 0) // EOF
+                break;
+            done += static_cast<std::size_t>(n);
+        }
+        return size == 0 ? 0 : done / size;
     }
 
     std::size_t Write(const void* buf, std::size_t size, std::size_t count) override {
-        return write(m_fd, buf, size * count);
+        // Same as Read(): handle short writes by looping until everything is written.
+        const u8* src = static_cast<const u8*>(buf);
+        const std::size_t total = size * count;
+        std::size_t done = 0;
+        while (done < total) {
+            const ssize_t n = write(m_fd, src + done, total - done);
+            if (n < 0) {
+                if (errno == EINTR)
+                    continue;
+                break;
+            }
+            done += static_cast<std::size_t>(n);
+        }
+        return size == 0 ? 0 : done / size;
     }
 
     bool Seek(s64 offset, int whence) override {

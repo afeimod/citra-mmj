@@ -273,6 +273,12 @@ public final class MainActivity extends AppCompatActivity {
 
         @Override
         protected Void doInBackground(Void... voids) {
+            // Android 11+ 的 SAF 文件选择器返回 content:// URI。
+            // 先尽量解析成真实路径（本应用有 MANAGE_EXTERNAL_STORAGE 权限），
+            // 解析不了的原样传入，native 层会直接通过 SAF fd 安装。
+            for (int i = 0; i < files.length; ++i) {
+                files[i] = NativeLibrary.resolveNativePath(files[i]);
+            }
             NativeLibrary.InstallCIA(files);
             return null;
         }
@@ -640,7 +646,20 @@ public final class MainActivity extends AppCompatActivity {
                 if (written == 0) {
                     Toast.makeText(this, getString(R.string.cia_install_success), Toast.LENGTH_LONG).show();
                 } else {
-                    Toast.makeText(this, "Error: " + name, Toast.LENGTH_LONG).show();
+                    // written 是 native 层 Service::AM::InstallStatus 错误码（1~5）
+                    int reason;
+                    switch ((int) written) {
+                        case 1:  reason = R.string.cia_install_error_open_failed; break;
+                        case 2:  reason = R.string.cia_install_error_not_found;   break;
+                        case 3:  reason = R.string.cia_install_error_aborted;     break;
+                        case 4:  reason = R.string.cia_install_error_invalid;     break;
+                        case 5:  reason = R.string.cia_install_error_encrypted;   break;
+                        default: reason = R.string.cia_install_error_invalid;     break;
+                    }
+                    String file = name.substring(name.lastIndexOf('/') + 1);
+                    Toast.makeText(this,
+                            getString(R.string.cia_install_error, file + ": " + getString(reason)),
+                            Toast.LENGTH_LONG).show();
                 }
             }
         }

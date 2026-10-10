@@ -4,11 +4,15 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.Surface;
 
@@ -96,6 +100,86 @@ public final class NativeLibrary {
             ret = -1;
         }
         return ret;
+    }
+
+    /**
+     * 把 SAF 选择器返回的 content:// URI 解析成真实文件路径（参考 azahar 的 getNativePath）。
+     * 本应用在 Android 11+ 上持有 MANAGE_EXTERNAL_STORAGE 权限，可直接访问原始路径，
+     * 解析成真实路径后 CIA 安装读取走普通文件 IO，更快也更稳。
+     *
+     * 解析不了时原样返回（native 层已支持直接通过 SAF fd 安装）。
+     */
+    public static String resolveNativePath(String uriString) {
+        if (uriString == null || !uriString.startsWith("content://")) {
+            return uriString;
+        }
+        try {
+            // Android 11+ 且没有"所有文件访问权限"时，/sdcard 下的原始路径反而读不了，
+            // 此时保留 content:// URI，native 层会直接通过 SAF fd 安装（无需原始路径）。
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                    && !Environment.isExternalStorageManager()) {
+                return uriString;
+            }
+            Uri uri = Uri.parse(uriString);
+            if ("file".equals(uri.getScheme())) {
+                return uri.getPath();
+            }
+            final String pathSegment = uri.getLastPathSegment();
+            if (pathSegment == null) {
+                return uriString;
+            }
+
+            // primary:Download/xxx.cia -> /sdcard/Download/xxx.cia
+            final String primaryPrefix = "primary:";
+            if (pathSegment.startsWith(primaryPrefix)) {
+                String virtual = pathSegment.substring(primaryPrefix.length());
+                return new File(Environment.getExternalStorageDirectory(), virtual)
+                        .getAbsolutePath();
+            }
+
+            // 下载提供器的 msf 文档：查 DISPLAY_NAME 后映射到 Download 目录
+            if (uriString.startsWith(
+                    "content://com.android.providers.downloads.documents/document/msf")) {
+                Cursor cursor = null;
+                try {
+                    Context context = getMainContext();
+                    if (context == null) {
+                        context = getEmulationContext();
+                    }
+                    if (context != null) {
+                        cursor = context.getContentResolver().query(
+                                uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+                        if (cursor != null && cursor.moveToFirst()) {
+                            String name = cursor.getString(0);
+                            if (name != null && !name.isEmpty()) {
+                                File downloads = Environment.getExternalStoragePublicDirectory(
+                                        Environment.DIRECTORY_DOWNLOADS);
+                                return new File(downloads, name).getAbsolutePath();
+                            }
+                        }
+                    }
+                } finally {
+                    if (cursor != null) {
+                        cursor.close();
+                    }
+                }
+                return uriString;
+            }
+
+            // 外置存储 XXXX-XXXX:path/xxx.cia -> /storage/XXXX-XXXX/path/xxx.cia
+            final int sep = pathSegment.indexOf(':');
+            if (sep > 0) {
+                String storageId = pathSegment.substring(0, sep);
+                String virtual = pathSegment.substring(sep + 1);
+                File storage = new File("/storage", storageId);
+                if (storage.isDirectory()) {
+                    return new File(storage, virtual).getAbsolutePath();
+                }
+            }
+        } catch (Exception e) {
+            Log.e("citra", "resolveNativePath error: " + uriString, e);
+        }
+        return uriString;
     }
 
     static WebRequestHandler RemoteFileHandler = null;
