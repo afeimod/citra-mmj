@@ -308,4 +308,7 @@
     <string name="chat_hint">Send a message...</string>
     <string name="chat_send">Send</string>
 
+    <!-- 首次启动权限引导：MANAGE_EXTERNAL_STORAGE（Android 11+） -->
+    <string name="manage_storage_permission_needed">Citra 需要访问存储空间才能读取你设备上的 3DS 游戏 ROM 文件（.3ds / .cci / .cxi / .3dsx / .cia 等）。\n\n点击「确定」会跳转到系统的「所有文件访问权限」设置页面，请为 Citra 开启该权限后返回。</string>
+
 </resources>

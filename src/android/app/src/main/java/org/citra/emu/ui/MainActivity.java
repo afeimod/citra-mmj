@@ -508,6 +508,15 @@ public final class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent result) {
         super.onActivityResult(requestCode, resultCode, result);
 
+        // 从"所有文件访问权限"设置页返回 —— 重新检查权限，授权了就启动 CitraDirectory
+        if (requestCode == PermissionsHandler.REQUEST_CODE_MANAGE_STORAGE) {
+            if (PermissionsHandler.hasWriteAccess(this)) {
+                CitraDirectory.start(this);
+                refreshLibrary();
+            }
+            return;
+        }
+
         switch (requestCode) {
         case FileBrowserHelper.REQUEST_OPEN_DIRECTORY:
             // If the user picked a file, as opposed to just backing out.

@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     EmulationFragment 的布局：游戏渲染表面 + 触屏按键 overlay + 各种 UI 元素。
-    之前项目缺这个 layout 文件，导致 R.layout.fragment_emulation 找不到。
-    EmulationFragment.java 用 findViewById 查这些 id。
+    EmulationFragment.java 用 findViewById 查这些 id，并且强转成对应类型 —— 比如
+    resize_overlay_top/bottom 必须是 org.citra.emu.overlay.ResizeOverlay（自定义 View 子类），
+    不能用普通 <View> 否则 ClassCastException。
 -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 顶部分辨率遮罩 -->
-    <View
+    <!-- 顶部分辨率遮罩（自定义 ResizeOverlay，可拖动调整屏幕区域） -->
+    <org.citra.emu.overlay.ResizeOverlay
         android:id="@+id/resize_overlay_top"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -17,7 +18,7 @@
         android:background="@android:color/transparent" />
 
     <!-- 底部分辨率遮罩 -->
-    <View
+    <org.citra.emu.overlay.ResizeOverlay
         android:id="@+id/resize_overlay_bottom"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -30,7 +31,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- 触屏按键 overlay -->
+    <!-- 触屏按键 overlay（自定义 InputOverlay） -->
     <org.citra.emu.overlay.InputOverlay
         android:id="@+id/surface_input_overlay"
         android:layout_width="match_parent"
