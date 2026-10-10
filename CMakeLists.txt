@@ -303,6 +303,9 @@ add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY
     -DBOOST_DATE_TIME_NO_LIB
     -DBOOST_REGEX_NO_LIB
 )
+# fmt 8.1.1 的 consteval 在 NDK 29 的 Clang 21 下编译报错（consteval 不能在非常量上下文求值）。
+# 把 FMT_CONSTEVAL 重定义为空，降级成普通函数，绕过编译期常量检查。
+add_definitions(-DFMT_CONSTEVAL=)
 
 # generate git/build information
 include(GetGitRevisionDescription)
