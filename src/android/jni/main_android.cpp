@@ -387,6 +387,13 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_SetBackgroundImage(JNIEn
     env->DeleteLocalRef(jpixels);
 }
 
+JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_SetBackgroundGLSL(JNIEnv* env, jclass obj,
+                                                                           jstring jglsl) {
+    const char* glsl = env->GetStringUTFChars(jglsl, nullptr);
+    VideoCore::SetBackgroundGLSL(std::string(glsl));
+    env->ReleaseStringUTFChars(jglsl, glsl);
+}
+
 JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_InputEvent(JNIEnv* env, jclass obj,
                                                                    jint button, jfloat value) {
     if (InputManager::GetInstance().InputEvent(button, value)) {

@@ -29,6 +29,7 @@ static u32 g_current_frame = 0;
 static u32 g_background_width = 0;
 static u32 g_background_height = 0;
 static std::vector<u32> g_background_pixels;
+static std::string g_background_glsl;
 
 std::atomic<bool> g_hw_shader_enabled;
 std::function<void(u32 width, u32 height, const std::vector<u32>& pixels)>
@@ -129,6 +130,10 @@ void SetBackgroundImage(u32* pixels, u32 width, u32 height) {
     g_background_pixels.insert(g_background_pixels.begin(), pixels, pixels + width * height);
     g_background_width = width;
     g_background_height = height;
+}
+
+void SetBackgroundGLSL(const std::string& glsl) {
+    g_background_glsl = glsl;
 }
 
 /// Shutdown the video core

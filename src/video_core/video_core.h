@@ -48,6 +48,7 @@ RasterizerInterface* Rasterizer();
 u16 GetResolutionScaleFactor();
 u32 GetCurrentFrame();
 void SetBackgroundImage(u32* pixels, u32 width, u32 height);
+void SetBackgroundGLSL(const std::string& glsl);
 
 void FrameUpdate();
 void SettingUpdate();
