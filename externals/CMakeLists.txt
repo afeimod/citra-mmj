@@ -12,11 +12,12 @@ target_include_directories(catch-single-include INTERFACE catch/single_include)
 add_subdirectory(cryptopp)
 
 # Dynarmic
-# dynarmic 钉到 azahar-emu/dynarmic@b3a92ab5（fetch-deps.sh），与 arm_dynarmic.{cpp,h} 兼容
-# dynarmic 的 DetectArchitecture.cmake 用小写 "arm64"/"x86_64"（IN_LIST 检查，区分大小写），
-# 但本仓库根 CMakeLists.txt 设的 ARCHITECTURE 是大写 "ARM64"。这里转小写让 dynarmic 识别。
+# afeimod/dynarmic-android 用 ARCHITECTURE_Aarch64（混合大小写）而非 ARCHITECTURE_ARM64。
+# 必须同时设置两个变量，否则 dynarmic 的 src/CMakeLists.txt 里
+# `elseif(ARCHITECTURE_Aarch64)` 永远不命中 → A64 backend 不编 → JIT 在 ARM64 上 crash。
 if(ARCHITECTURE_ARM64)
-    set(ARCHITECTURE "arm64")
+    set(ARCHITECTURE "Aarch64")
+    set(ARCHITECTURE_Aarch64 1)
 elseif(ARCHITECTURE_x86_64)
     set(ARCHITECTURE "x86_64")
 endif()
