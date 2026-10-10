@@ -1,41 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    EmulationFragment 的布局：游戏渲染表面 + 触屏按键 overlay + 各种 UI 元素。
-    EmulationFragment.java 用 findViewById 查这些 id，并且强转成对应类型 —— 比如
-    resize_overlay_top/bottom 必须是 org.citra.emu.overlay.ResizeOverlay（自定义 View 子类），
-    不能用普通 <View> 否则 ClassCastException。
--->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 顶部分辨率遮罩（自定义布局拖动区域） -->
-    <org.citra.emu.overlay.ResizeOverlay
-        android:id="@+id/resize_overlay_top"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@android:color/transparent" />
-
-    <!-- 底部分辨率遮罩 -->
-    <org.citra.emu.overlay.ResizeOverlay
-        android:id="@+id/resize_overlay_bottom"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@android:color/transparent" />
-
-    <!-- 游戏渲染表面 -->
+    <!-- 游戏渲染表面（最底层） -->
     <SurfaceView
         android:id="@+id/surface_emulation"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- 触屏按键 overlay（自定义 InputOverlay） -->
+    <!-- 触屏按键 overlay（在游戏画面上） -->
     <org.citra.emu.overlay.InputOverlay
         android:id="@+id/surface_input_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:focusable="true"
         android:focusableInTouchMode="true" />
+
+    <!-- 顶部分辨率遮罩（自定义布局拖动区域，编辑模式才可见） -->
+    <org.citra.emu.overlay.ResizeOverlay
+        android:id="@+id/resize_overlay_top"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:visibility="invisible" />
+
+    <!-- 底部分辨率遮罩 -->
+    <org.citra.emu.overlay.ResizeOverlay
+        android:id="@+id/resize_overlay_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:visibility="invisible" />
 
     <!-- 加载进度条 -->
     <ProgressBar
@@ -46,7 +42,7 @@
         android:layout_centerInParent="true"
         android:visibility="gone" />
 
-    <!-- 翻译文字（FMV hack 文本提示） -->
+    <!-- 翻译文字 -->
     <TextView
         android:id="@+id/translate_text"
         android:layout_width="wrap_content"
