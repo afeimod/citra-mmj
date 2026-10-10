@@ -120,30 +120,6 @@ jobs:
           echo '--- actual files matching _simd or -simd in cryptopp source ---'
           ls externals/cryptopp/cryptopp/*simd* 2>/dev/null || true
 
-          # --- dynarmic-android + fmt 12.x 兼容性修复 ---
-          # afeimod/dynarmic-android 的 disassembler 用 fmt::format("{}", reg) 格式化
-          # Dynarmic::A32::Reg / CoprocReg 枚举。fmt 12.x 对没有 formatter 特化的类型
-          # 报 type_is_unformattable_for 编译错误。追加 formatter 特化到 a32_types.cpp 末尾。
-          TYPES_CPP=externals/dynarmic/src/frontend/A32/a32_types.cpp
-          if [ -f "$TYPES_CPP" ]; then
-            printf '\n// fmt 12.x compat: formatter for Reg and CoprocReg\n' >> "$TYPES_CPP"
-            printf '#include <fmt/format.h>\n' >> "$TYPES_CPP"
-            printf 'template <> struct fmt::formatter<Dynarmic::A32::Reg> : fmt::formatter<int> {\n' >> "$TYPES_CPP"
-            printf '    auto format(Dynarmic::A32::Reg r, fmt::format_context& ctx) const {\n' >> "$TYPES_CPP"
-            printf '        return fmt::formatter<int>::format(static_cast<int>(r), ctx);\n' >> "$TYPES_CPP"
-            printf '    }\n};\n' >> "$TYPES_CPP"
-            printf 'template <> struct fmt::formatter<Dynarmic::A32::CoprocReg> : fmt::formatter<int> {\n' >> "$TYPES_CPP"
-            printf '    auto format(Dynarmic::A32::CoprocReg r, fmt::format_context& ctx) const {\n' >> "$TYPES_CPP"
-            printf '        return fmt::formatter<int>::format(static_cast<int>(r), ctx);\n' >> "$TYPES_CPP"
-            printf '    }\n};\n' >> "$TYPES_CPP"
-            printf 'template <> struct fmt::formatter<Dynarmic::A32::ExtReg> : fmt::formatter<int> {\n' >> "$TYPES_CPP"
-            printf '    auto format(Dynarmic::A32::ExtReg r, fmt::format_context& ctx) const {\n' >> "$TYPES_CPP"
-            printf '        return fmt::formatter<int>::format(static_cast<int>(r), ctx);\n' >> "$TYPES_CPP"
-            printf '    }\n};\n' >> "$TYPES_CPP"
-            echo '--- patched a32_types.cpp with fmt formatters ---'
-            tail -15 "$TYPES_CPP"
-          fi
-
           # --- cubeb JNI 重复符号修复 ---
           # cubeb 的 cubeb-jni-instances.h 默认 inline 定义了 cubeb_get_jni_env_for_thread()
           # 和 cubeb_jni_get_context_instance() 返回 nullptr；但本仓库 src/android/jni/jni_common.cpp

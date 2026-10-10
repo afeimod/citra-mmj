@@ -39,6 +39,12 @@ fetch externals/cryptopp/cryptopp https://github.com/weidai11/cryptopp.git
 # cryptopp 不在这里 pin 8.2.0 —— 8.2.0 tag 在 shallow clone 下经常拉不下来，
 # 改在 CI workflow 里用 master + sed 把 CMakeLists 的 -simd.cpp 改成 _simd.cpp。
 fetch externals/fmt           https://github.com/fmtlib/fmt.git
+# fmt 必须钉到 8.1.1 —— fmt 9.0+ 引入了 type_is_unformattable_for 静态检查，
+# 对 dynarmic-android 的 Reg/CoprocReg 枚举报编译错误。8.1.1 没有这个检查。
+(cd externals/fmt && \
+  git fetch -q --depth 1 origin tag 8.1.1 && \
+  git checkout -q 8.1.1)
+echo "  fmt pinned at: $(git -C externals/fmt rev-parse --short HEAD)"
 fetch externals/enet          https://github.com/lsalzman/enet.git
 fetch externals/inih/inih     https://github.com/benhoyt/inih.git
 fetch externals/libressl      https://github.com/libressl/portable.git
