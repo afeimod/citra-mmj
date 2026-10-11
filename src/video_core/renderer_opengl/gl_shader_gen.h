@@ -112,8 +112,24 @@ struct PicaFSConfigState {
         Pica::TexturingRegs::ProcTexFilter lut_filter;
     } proctex;
 
+    // Effective "shadow map write" flag: true iff the runtime toggle
+    // (Settings::values.shadow_rendering, mirrored into the AllowShadow global)
+    // allows shadow rendering AND the current draw is a shadow-map write
+    // (fragment_operation_mode == Shadow). Embedding AllowShadow in this key
+    // bit is what makes the in-game toggle take effect immediately: flipping
+    // the toggle changes the key, so UseFragmentShader() selects/generates a
+    // different shader instead of reusing the stale one.
+    //
+    // Scene draws that merely SAMPLE the shadow map (texture0 type Shadow2D /
+    // ShadowCube, or lighting shadow) keep using the neutral stub
+    // shadowTexture()/shadowTextureCube() (vec4(1.0)) - exactly like the
+    // shipped MMJ build does. Only the shadow-map write draw gets the real
+    // image load/store code; the written shadow map is consumed through the
+    // rasterizer cache (the surface memory is invalidated after the draw and
+    // the game reads it back as a regular texture), which is the behaviour the
+    // shipped, working MMJ binary exhibits (verified against its shader dump:
+    // 151 stub scene shaders + 1 full shadow-write shader).
     bool shadow_rendering;
-    bool shadow_sampling;
     bool shadow_texture_orthographic;
 };
 

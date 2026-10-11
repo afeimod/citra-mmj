@@ -265,26 +265,15 @@ PicaFSConfig PicaFSConfig::BuildFromRegs(const Pica::Regs& regs) {
         state.proctex.lut_filter = regs.texturing.proctex_lut.filter;
     }
 
-    // Embed the effective shadow-support flag (AllowShadow) in the config so
-    // the shader cache key changes when shadow rendering is toggled at runtime
-    // (in-game settings dialog). Otherwise a stale non-shadow shader would be
-    // reused after enabling the option, and shadows would stay missing until
-    // the whole cache was flushed.
+    // Effective shadow-map-write flag, embedded in the shader cache key so the
+    // in-game toggle takes effect immediately (flipping the toggle flips this
+    // bit, and UseFragmentShader() then selects/generates the matching shader).
+    // Mirrors the shipped MMJ behaviour: only the WRITE side (draws with
+    // fragment_operation_mode == Shadow) changes; scene draws that merely
+    // sample the shadow map keep the neutral stubs either way.
     state.shadow_rendering =
         AllowShadow && regs.framebuffer.output_merger.fragment_operation_mode ==
                            FramebufferRegs::FragmentOperationMode::Shadow;
-
-    // READ side of shadow rendering: the scene samples the rendered shadow map
-    // through texture unit 0 configured as Shadow2D/ShadowCube. This is
-    // independent of the WRITE side above (fragment_operation_mode == Shadow),
-    // and must have its own cache-key bit: otherwise the real sampling
-    // functions would never be generated for scene shaders and the shadow map
-    // would stay unsampled forever (shadows invisible).
-    state.shadow_sampling =
-        AllowShadow && (state.texture0_type ==
-                            TexturingRegs::TextureConfig::TextureType::Shadow2D ||
-                        state.texture0_type ==
-                            TexturingRegs::TextureConfig::TextureType::ShadowCube);
 
     state.shadow_texture_orthographic = regs.texturing.shadow.orthographic != 0;
 
@@ -1320,30 +1309,24 @@ static void AppendProcLogicOp(std::string& out, FramebufferRegs::LogicOp logic_o
     out += "color = vec4(vec3(new_color & 255) * (1.0 / 255.0), byteround(last_tex_env_out.a));\n";
 }
 
-static void AppendShadowRendering(std::string& out, const PicaFSConfig& config,
-                                  bool shadow_sampling, bool shadow_rendering) {
-    // DecodeShadow is shared by the sampling functions and the write loop;
-    // emit it exactly once ( callers guarantee at least one flag is set ).
+static void AppendShadowRendering(std::string& out, const PicaFSConfig& config) {
+    // Full helper set for the shadow-map write draw, byte-identical to the
+    // shipped MMJ build (verified against its shader dump). DecodeShadow is
+    // shared by the sampling functions and the write loop, EncodeShadow by the
+    // write loop only; both are emitted together so the write path always has
+    // the complete set.
     out += R"(
 uvec2 DecodeShadow(uint pixel) {
     return uvec2(pixel >> 8, pixel & 255u);
 }
-)";
 
-    // READ side: sample the rendered shadow map (texture0 of Shadow2D /
-    // ShadowCube type). Mirrors azahar's DefineShadowHelpers: these functions
-    // must exist in every scene shader whose texture0 is a shadow map,
-    // independent of whether the current draw writes the shadow map.
-    if (shadow_sampling) {
-        out += R"(
+uint EncodeShadow(uvec2 pixel) {
+    return (pixel.x << 8) | pixel.y;
+}
+
 float CompareShadow(uint pixel, uint z) {
     uvec2 p = DecodeShadow(pixel);
     return mix(float(p.y) * (1.0 / 255.0), 0.0, p.x <= z);
-}
-
-float mix2(vec4 s, vec2 a) {
-    vec2 t = mix(s.xy, s.zw, a.yy);
-    return mix(t.x, t.y, a.x);
 }
 
 float SampleShadow2D(ivec2 uv, uint z) {
@@ -1352,15 +1335,19 @@ float SampleShadow2D(ivec2 uv, uint z) {
     return CompareShadow(imageLoad(shadow_texture_px, uv).x, z);
 }
 
+float mix2(vec4 s, vec2 a) {
+    vec2 t = mix(s.xy, s.zw, a.yy);
+    return mix(t.x, t.y, a.x);
+}
+
 vec4 shadowTexture(vec2 uv, float w) {
 )";
-        if (!config.state.shadow_texture_orthographic) {
-            out += "uv /= w;";
-        }
-        out +=
-            "uint z = uint(max(0, int(min(abs(w), 1.0) * (exp2(24.0) - 1.0)) - "
-            "shadow_texture_bias));";
-        out += R"(
+    if (!config.state.shadow_texture_orthographic) {
+        out += "uv /= w;";
+    }
+    out +=
+        "uint z = uint(max(0, int(min(abs(w), 1.0) * (exp2(24.0) - 1.0)) - shadow_texture_bias));";
+    out += R"(
     vec2 coord = vec2(imageSize(shadow_texture_px)) * uv - vec2(0.5);
     vec2 coord_floor = floor(coord);
     vec2 f = coord - coord_floor;
@@ -1391,9 +1378,8 @@ vec4 shadowTextureCube(vec2 uv, float w) {
         if (c.z > 0.0) uv.x = -uv.x;
     }
 )";
-        out +=
-            "uint z = uint(max(0, int(min(w, 1.0) * (exp2(24.0) - 1.0)) - shadow_texture_bias));";
-        out += R"(
+    out += "uint z = uint(max(0, int(min(w, 1.0) * (exp2(24.0) - 1.0)) - shadow_texture_bias));";
+    out += R"(
     vec2 coord = vec2(size) * (uv / w * vec2(0.5) + vec2(0.5)) - vec2(0.5);
     vec2 coord_floor = floor(coord);
     vec2 f = coord - coord_floor;
@@ -1457,30 +1443,18 @@ vec4 shadowTextureCube(vec2 uv, float w) {
     return vec4(mix2(s, f));
 }
 )";
-    }
-
-    // WRITE side: encoding helper for the shadow-map write loop in main().
-    if (shadow_rendering) {
-        out += R"(
-uint EncodeShadow(uvec2 pixel) {
-    return (pixel.x << 8) | pixel.y;
-}
-)";
-    }
 }
 
 std::string GenerateFragmentShader(const PicaFSConfig& config, bool separable_shader) {
     const auto& state = config.state;
     std::string out;
     // WRITE side of shadow rendering: this draw renders the shadow map itself
-    // (fragment operation mode == Shadow). Gated on the runtime shadow toggle.
-    // Kept outside the GLES branch: the desktop branch already emits the ARB
-    // image extension directives, and shadow draws must be generated there too.
-    bool shadow_rendering = AllowShadow && state.shadow_rendering;
-    // READ side of shadow rendering: this draw samples the shadow map through
-    // texture unit 0 (Shadow2D/ShadowCube). Independent of the write side, so
-    // scene shaders get the real sampling functions instead of the stubs.
-    bool shadow_sampling = state.shadow_sampling;
+    // (fragment operation mode == Shadow). The AllowShadow gate is already
+    // embedded in state.shadow_rendering (see PicaFSConfig::BuildFromRegs), so
+    // a runtime toggle flip simply produces a different config key and this
+    // flag follows. Scene draws (the flag false) get the neutral stubs, which
+    // is exactly what the shipped MMJ build generates.
+    bool shadow_rendering = state.shadow_rendering;
     bool shader_logic_ops = false;
 
     if (separable_shader) {
@@ -1532,8 +1506,11 @@ uniform samplerBuffer texture_buffer_lut_rg;
 uniform samplerBuffer texture_buffer_lut_rgba;
 )";
 
-    if (shadow_sampling) {
-        // READ side: the shadow map is sampled through these images
+    if (shadow_rendering) {
+        // Shadow-map write draw: all seven image uniforms are declared
+        // together, byte-identical to the shipped MMJ build (the sampling
+        // helpers below reference the six shadow_texture_* images even inside
+        // the write shader, so they must all exist).
         out += R"(
 layout(r32ui) uniform readonly uimage2D shadow_texture_px;
 layout(r32ui) uniform readonly uimage2D shadow_texture_nx;
@@ -1541,11 +1518,6 @@ layout(r32ui) uniform readonly uimage2D shadow_texture_py;
 layout(r32ui) uniform readonly uimage2D shadow_texture_ny;
 layout(r32ui) uniform readonly uimage2D shadow_texture_pz;
 layout(r32ui) uniform readonly uimage2D shadow_texture_nz;
-)";
-    }
-    if (shadow_rendering) {
-        // WRITE side: the shadow map is rendered into this image
-        out += R"(
 layout(r32ui) uniform uimage2D shadow_buffer;
 )";
     }
@@ -1602,12 +1574,12 @@ float getLod(vec2 coord) {
 }
 )";
 
-    if (shadow_rendering || shadow_sampling) {
-        AppendShadowRendering(out, config, shadow_sampling, shadow_rendering);
+    if (shadow_rendering) {
+        AppendShadowRendering(out, config);
     } else {
-        // Shadow rendering is disabled at runtime: keep neutral stubs so that
-        // shaders referencing the sampling functions still compile, with the
-        // shadow contribution fixed to "fully lit".
+        // Shadow rendering is disabled (or this is a scene draw): keep the
+        // neutral stubs so shaders referencing the sampling functions still
+        // compile, with the shadow contribution fixed to "fully lit".
         out += R"(
 vec4 shadowTexture(vec2 uv, float w) {
     return vec4(1.0);

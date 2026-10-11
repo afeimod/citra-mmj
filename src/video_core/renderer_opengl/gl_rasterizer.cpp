@@ -12,8 +12,10 @@
 #include <utility>
 #include <glad/glad.h>
 #ifdef ARCHITECTURE_ARM64
-#include <android/log.h>
 #include <arm_neon.h>
+#endif
+#ifdef ANDROID
+#include <android/log.h>
 #endif
 #include "common/alignment.h"
 #include "common/assert.h"
@@ -55,19 +57,17 @@ static bool IsVendorMali() {
  *
  * FIX (启用阴影渲染无效果): read the "启用阴影渲染" toggle
  * (Settings::values.shadow_rendering) directly as the single source of
- * truth, exactly like citra-mmj-az / vanilla MMJ does. The previous code
- * read the indirect mirror Settings::values.allow_shadow instead, which is
- * only synced from the toggle inside two JNI hand-written paths
- * (NativeLibrary.Run / setRunningSettings); any other launch path - or a
- * sync that runs after the rasterizer was built - left allow_shadow at its
- * default (false), so every shadow draw was silently skipped in Draw() and
- * every fragment shader fell back to the neutral stubs, i.e. the toggle
- * had no visible effect. shadow_rendering is the value the UI toggle
- * writes and the config file persists (default true), so gating on it
- * makes the switch authoritative in every launch path. The ES 3.1 check is
- * kept as a driver-safety net: the app refuses to start below ES 3.1
- * anyway (RendererOpenGL::Init returns ErrorBelowGL33), so it can never
- * disable a working device.
+ * truth. shadow_rendering is the value the UI toggle writes and the config
+ * file persists (default true), so gating on it makes the switch
+ * authoritative in every launch path. The ES 3.1 check is kept as a
+ * driver-safety net: the app refuses to start below ES 3.1 anyway
+ * (RendererOpenGL::Init returns ErrorBelowGL33), so it can never disable a
+ * working device.
+ *
+ * NOTE on logging: the LOG_xxx macros compile to no-ops on Android
+ * (common/logging/log.h undefines them under ANDROID), so diagnostics from
+ * native code go through __android_log_print directly and through the
+ * on-screen OSD, which the user can actually see.
  *
  * Called from the rasterizer constructor and from CheckForConfigChanges()
  * (the in-game settings dialog can toggle it at runtime).
@@ -78,14 +78,16 @@ static bool CheckAllowShadow() {
                                    GLAD_GL_ARB_framebuffer_no_attachments) ||
                                   GLAD_GL_ES_VERSION_3_1;
     const bool allowed = driver_supported && Settings::values.shadow_rendering;
-    LOG_INFO(Render_OpenGL,
-             "AllowShadow: driver_supported={} shadow_rendering={} (ARB_ils={}, ARB_isize={}, "
-             "ARB_fbo_no_attach={}, GLES31={}) -> AllowShadow={}",
-             driver_supported, Settings::values.shadow_rendering,
-             GLAD_GL_ARB_shader_image_load_store ? 1 : 0,
-             GLAD_GL_ARB_shader_image_size ? 1 : 0,
-             GLAD_GL_ARB_framebuffer_no_attachments ? 1 : 0,
-             GLAD_GL_ES_VERSION_3_1 ? 1 : 0, allowed);
+#ifdef ANDROID
+    __android_log_print(ANDROID_LOG_INFO, "citra",
+                        "AllowShadow: driver=%d shadow_rendering=%d (GLES31=%d ARB_ils=%d "
+                        "ARB_isize=%d ARB_fbo_no_attach=%d) -> AllowShadow=%d",
+                        driver_supported ? 1 : 0, Settings::values.shadow_rendering ? 1 : 0,
+                        GLAD_GL_ES_VERSION_3_1 ? 1 : 0,
+                        GLAD_GL_ARB_shader_image_load_store ? 1 : 0,
+                        GLAD_GL_ARB_shader_image_size ? 1 : 0,
+                        GLAD_GL_ARB_framebuffer_no_attachments ? 1 : 0, allowed ? 1 : 0);
+#endif
     return allowed;
 }
 
@@ -487,7 +489,7 @@ void RasterizerOpenGL::CheckForConfigChanges() {
 
     // Shadow rendering can be toggled at runtime from the in-game settings
     // dialog. Re-evaluate driver support / user override here; the PicaFSConfig
-    // key embeds the resulting flag (see PicaShaderConfigCommon::Init), so
+    // key embeds the resulting flag (see PicaFSConfig::BuildFromRegs), so
     // cached shaders are keyed correctly after the flip. Re-upload the uniform
     // blocks once since their dirty flags may have been consumed while the
     // shadow path was disabled.
@@ -496,11 +498,23 @@ void RasterizerOpenGL::CheckForConfigChanges() {
     if (AllowShadow != old_allow_shadow) {
         uniform_block_data.dirty = true;
         uniform_block_data.light_dirty = true;
-        // The PicaFSConfig key embeds the shadow flags (shadow_rendering /
-        // shadow_sampling): force shader re-selection so the toggle takes
-        // effect immediately, without waiting for the game to rewrite some
-        // other register that happens to set shader_dirty.
+        // The PicaFSConfig key embeds the effective shadow-write flag: force
+        // shader re-selection so the toggle takes effect immediately, without
+        // waiting for the game to rewrite some other register that happens to
+        // set shader_dirty.
         shader_dirty = true;
+        // The first shadow-map write draw after enabling compiles a new
+        // fragment shader synchronously, which can hitch for a moment - tell
+        // the user why, and confirm on screen that the toggle was picked up
+        // (native C++ LOG_xxx is compiled out on Android).
+        const char* msg = AllowShadow ? "Shadow rendering enabled"
+                                      : "Shadow rendering disabled";
+        OSD::AddMessage(msg, OSD::MessageType::Typeless, OSD::Duration::NORMAL,
+                        AllowShadow ? OSD::Color::GREEN : OSD::Color::YELLOW);
+#ifdef ANDROID
+        __android_log_print(ANDROID_LOG_INFO, "citra",
+                            "Shadow rendering runtime toggle -> AllowShadow=%d", AllowShadow ? 1 : 0);
+#endif
     }
 }
 
@@ -636,6 +650,20 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
     const bool shadow_rendering = regs.framebuffer.IsShadowRendering();
     if (shadow_rendering && !AllowShadow) {
         return true;
+    }
+
+    // One-shot diagnostics for the shadow-map write path: confirms on logcat
+    // (tag "citra") that the game actually issues shadow draws and that the
+    // toggle is active, without spamming every frame.
+    if (shadow_rendering) {
+        static bool shadow_draw_logged = false;
+        if (!shadow_draw_logged) {
+            shadow_draw_logged = true;
+#ifdef ANDROID
+            __android_log_print(ANDROID_LOG_INFO, "citra",
+                                "Shadow write draw: executing (AllowShadow=%d)", AllowShadow ? 1 : 0);
+#endif
+        }
     }
 
     const bool has_stencil = regs.framebuffer.HasStencil();
