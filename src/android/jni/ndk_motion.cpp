@@ -103,7 +103,10 @@ class NDKMotion final : public Input::MotionDevice {
     }
 
     void Update() const {
-        ALooper_pollAll(0, nullptr, nullptr, nullptr);
+        // ALooper_pollAll 在 NDK r26+ 被标记 unavailable（与 cubeb AAudio 同类报错
+        // "is unavailable"），编译直接失败。改用参数完全相同的 ALooper_pollOnce：
+        // timeout, outFd, outEvents, outData —— 语义一致（处理一次挂起事件）。
+        ALooper_pollOnce(0, nullptr, nullptr, nullptr);
         ASensorEvent event{};
         std::optional<Vec3<float>> new_accel{}, new_rot{};
         while (ASensorEventQueue_getEvents(event_queue, &event, 1) > 0) {
