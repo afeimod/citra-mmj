@@ -484,6 +484,10 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_Run(JNIEnv* env, jclass 
     Settings::values.mic_input_device = Config::Get(Config::MIC_INPUT_DEVICE);
     // debug
     Settings::values.shadow_rendering = Config::Get(Config::SHADOW_RENDERING);
+    // The in-game "启用阴影渲染" toggle must reach the rasterizer: AllowShadow
+    // (gl_rasterizer) is the flag that actually enables the shadow draw path,
+    // Settings::values.shadow_rendering only persists the preference.
+    Settings::values.allow_shadow = Settings::values.shadow_rendering;
     Settings::values.use_present_thread = Config::Get(Config::USE_PRESENT_THREAD);
     Settings::values.core_downcount_hack = Config::Get(Config::CPU_USAGE_LIMIT);
     u8 shaderType = Config::Get(Config::SHADER_TYPE);
@@ -619,6 +623,9 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setRunningSettings(JNIEn
     // Shadow Rendering
     Settings::values.shadow_rendering = settings[i++] > 0;
     Config::Set(Config::SHADOW_RENDERING, Settings::values.shadow_rendering);
+    // Apply the toggle to the flag the rasterizer actually reads (AllowShadow);
+    // RasterizerOpenGL::CheckForConfigChanges() picks it up on the next frame.
+    Settings::values.allow_shadow = Settings::values.shadow_rendering;
 
     // Async Shader Compile
     Settings::values.async_shader_compile = settings[i++] > 0;

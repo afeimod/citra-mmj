@@ -43,6 +43,23 @@ static bool IsVendorMali() {
     return gpu_vendor.find("ARM") != std::string::npos;
 }
 
+/*
+ * Shadow rendering needs image load/store, image size queries and framebuffer
+ * objects without attachments. On desktop GL these come from the ARB
+ * extensions; on GLES they are core features since ES 3.1, but ES drivers
+ * never advertise the ARB names, so the extension check alone always failed
+ * on Android and shadow draws were silently skipped in Draw(). The user
+ * override ("启用阴影渲染") is honored only when the driver really exposes
+ * the ES 3.1 core features, so it stays safe on older devices.
+ * Called from the rasterizer constructor and from CheckForConfigChanges()
+ * (the in-game settings dialog can toggle it at runtime).
+ */
+static bool CheckAllowShadow() {
+    return (GLAD_GL_ARB_shader_image_load_store && GLAD_GL_ARB_shader_image_size &&
+            GLAD_GL_ARB_framebuffer_no_attachments) ||
+           (GLAD_GL_ES_VERSION_3_1 && Settings::values.allow_shadow);
+}
+
 RasterizerOpenGL::RasterizerOpenGL()
     : is_mali_gpu(IsVendorMali()), shader_dirty(true),
       vertex_buffer(GL_ARRAY_BUFFER, VERTEX_BUFFER_SIZE),
@@ -51,9 +68,7 @@ RasterizerOpenGL::RasterizerOpenGL()
       texture_buffer(GL_TEXTURE_BUFFER, is_mali_gpu ? 11264 : TEXTURE_BUFFER_SIZE),
       texture_lf_buffer(GL_TEXTURE_BUFFER, is_mali_gpu ? 525312 : TEXTURE_BUFFER_SIZE) {
 
-    AllowShadow = (GLAD_GL_ARB_shader_image_load_store && GLAD_GL_ARB_shader_image_size &&
-                   GLAD_GL_ARB_framebuffer_no_attachments) ||
-                  Settings::values.allow_shadow;
+    AllowShadow = CheckAllowShadow();
 
     // Clipping plane 0 is always enabled for PICA fixed clip plane z <= 0
     state.clip_distance[0] = true;
@@ -439,6 +454,19 @@ void RasterizerOpenGL::CheckForConfigChanges() {
     if (res_cache.GetScaleFactor() != scale_factor) {
         framebuffer_info = {};
         res_cache.SetScaleFactor(scale_factor);
+    }
+
+    // Shadow rendering can be toggled at runtime from the in-game settings
+    // dialog. Re-evaluate driver support / user override here; the PicaFSConfig
+    // key embeds the resulting flag (see PicaShaderConfigCommon::Init), so
+    // cached shaders are keyed correctly after the flip. Re-upload the uniform
+    // blocks once since their dirty flags may have been consumed while the
+    // shadow path was disabled.
+    const bool old_allow_shadow = AllowShadow;
+    AllowShadow = CheckAllowShadow();
+    if (AllowShadow != old_allow_shadow) {
+        uniform_block_data.dirty = true;
+        uniform_block_data.light_dirty = true;
     }
 }
 

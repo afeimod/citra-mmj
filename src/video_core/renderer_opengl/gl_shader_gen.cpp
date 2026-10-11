@@ -263,8 +263,14 @@ PicaFSConfig PicaFSConfig::BuildFromRegs(const Pica::Regs& regs) {
         state.proctex.lut_filter = regs.texturing.proctex_lut.filter;
     }
 
-    state.shadow_rendering = regs.framebuffer.output_merger.fragment_operation_mode ==
-                             FramebufferRegs::FragmentOperationMode::Shadow;
+    // Embed the effective shadow-support flag (AllowShadow) in the config so
+    // the shader cache key changes when shadow rendering is toggled at runtime
+    // (in-game settings dialog). Otherwise a stale non-shadow shader would be
+    // reused after enabling the option, and shadows would stay missing until
+    // the whole cache was flushed.
+    state.shadow_rendering =
+        AllowShadow && regs.framebuffer.output_merger.fragment_operation_mode ==
+                           FramebufferRegs::FragmentOperationMode::Shadow;
 
     state.shadow_texture_orthographic = regs.texturing.shadow.orthographic != 0;
 
