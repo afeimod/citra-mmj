@@ -113,6 +113,7 @@ struct PicaFSConfigState {
     } proctex;
 
     bool shadow_rendering;
+    bool shadow_sampling;
     bool shadow_texture_orthographic;
 };
 

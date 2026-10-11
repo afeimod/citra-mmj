@@ -467,6 +467,11 @@ void RasterizerOpenGL::CheckForConfigChanges() {
     if (AllowShadow != old_allow_shadow) {
         uniform_block_data.dirty = true;
         uniform_block_data.light_dirty = true;
+        // The PicaFSConfig key embeds the shadow flags (shadow_rendering /
+        // shadow_sampling): force shader re-selection so the toggle takes
+        // effect immediately, without waiting for the game to rewrite some
+        // other register that happens to set shader_dirty.
+        shader_dirty = true;
     }
 }
 
@@ -975,9 +980,15 @@ void RasterizerOpenGL::NotifyPicaRegisterChanged(u32 id) {
         shader_dirty = true;
         break;
 
-    // Blending
+    // Blending / fragment operation mode
+    // NOTE: alphablend_enable and fragment_operation_mode share the same PICA
+    // register word (union), so this single case also fires when the game
+    // switches shadow-map rendering on/off. The fragment shader configuration
+    // depends on that mode (shadow write path), hence the shader must be
+    // re-selected here.
     case PICA_REG_INDEX(framebuffer.output_merger.alphablend_enable):
         SyncBlendEnabled();
+        shader_dirty = true;
         break;
     case PICA_REG_INDEX(framebuffer.output_merger.alpha_blending):
         SyncBlendFuncs();
