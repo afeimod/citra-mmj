@@ -51,16 +51,42 @@ static bool IsVendorMali() {
  * objects without attachments. On desktop GL these come from the ARB
  * extensions; on GLES they are core features since ES 3.1, but ES drivers
  * never advertise the ARB names, so the extension check alone always failed
- * on Android and shadow draws were silently skipped in Draw(). The user
- * override ("启用阴影渲染") is honored only when the driver really exposes
- * the ES 3.1 core features, so it stays safe on older devices.
+ * on Android and shadow draws were silently skipped in Draw().
+ *
+ * FIX (启用阴影渲染无效果): read the "启用阴影渲染" toggle
+ * (Settings::values.shadow_rendering) directly as the single source of
+ * truth, exactly like citra-mmj-az / vanilla MMJ does. The previous code
+ * read the indirect mirror Settings::values.allow_shadow instead, which is
+ * only synced from the toggle inside two JNI hand-written paths
+ * (NativeLibrary.Run / setRunningSettings); any other launch path - or a
+ * sync that runs after the rasterizer was built - left allow_shadow at its
+ * default (false), so every shadow draw was silently skipped in Draw() and
+ * every fragment shader fell back to the neutral stubs, i.e. the toggle
+ * had no visible effect. shadow_rendering is the value the UI toggle
+ * writes and the config file persists (default true), so gating on it
+ * makes the switch authoritative in every launch path. The ES 3.1 check is
+ * kept as a driver-safety net: the app refuses to start below ES 3.1
+ * anyway (RendererOpenGL::Init returns ErrorBelowGL33), so it can never
+ * disable a working device.
+ *
  * Called from the rasterizer constructor and from CheckForConfigChanges()
  * (the in-game settings dialog can toggle it at runtime).
  */
 static bool CheckAllowShadow() {
-    return (GLAD_GL_ARB_shader_image_load_store && GLAD_GL_ARB_shader_image_size &&
-            GLAD_GL_ARB_framebuffer_no_attachments) ||
-           (GLAD_GL_ES_VERSION_3_1 && Settings::values.allow_shadow);
+    const bool driver_supported = (GLAD_GL_ARB_shader_image_load_store &&
+                                   GLAD_GL_ARB_shader_image_size &&
+                                   GLAD_GL_ARB_framebuffer_no_attachments) ||
+                                  GLAD_GL_ES_VERSION_3_1;
+    const bool allowed = driver_supported && Settings::values.shadow_rendering;
+    LOG_INFO(Render_OpenGL,
+             "AllowShadow: driver_supported={} shadow_rendering={} (ARB_ils={}, ARB_isize={}, "
+             "ARB_fbo_no_attach={}, GLES31={}) -> AllowShadow={}",
+             driver_supported, Settings::values.shadow_rendering,
+             GLAD_GL_ARB_shader_image_load_store ? 1 : 0,
+             GLAD_GL_ARB_shader_image_size ? 1 : 0,
+             GLAD_GL_ARB_framebuffer_no_attachments ? 1 : 0,
+             GLAD_GL_ES_VERSION_3_1 ? 1 : 0, allowed);
+    return allowed;
 }
 
 RasterizerOpenGL::RasterizerOpenGL()

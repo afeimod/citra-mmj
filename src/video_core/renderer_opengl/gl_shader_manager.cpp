@@ -291,7 +291,12 @@ public:
         }
     }
 
-    static constexpr u32 PROGRAM_CACHE_VERSION = 0x9;
+    // Bumped 0x9 -> 0xA: the PicaFSConfig key layout changed with the shadow
+    // rendering fix (AllowShadow now gates the shadow_rendering /
+    // shadow_sampling key bits). Stale program caches written by intermediate
+    // builds could hold pre-fix stub shadow shaders; force a clean reload so
+    // enabling "启用阴影渲染" always regenerates the real shadow shaders.
+    static constexpr u32 PROGRAM_CACHE_VERSION = 0xA;
 
     static std::string GetCacheFile() {
         u64 program_id = 0;
