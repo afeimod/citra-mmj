@@ -268,12 +268,18 @@ PicaFSConfig PicaFSConfig::BuildFromRegs(const Pica::Regs& regs) {
     // Effective shadow-map-write flag, embedded in the shader cache key so the
     // in-game toggle takes effect immediately (flipping the toggle flips this
     // bit, and UseFragmentShader() then selects/generates the matching shader).
-    // Mirrors the shipped MMJ behaviour: only the WRITE side (draws with
-    // fragment_operation_mode == Shadow) changes; scene draws that merely
-    // sample the shadow map keep the neutral stubs either way.
     state.shadow_rendering =
         AllowShadow && regs.framebuffer.output_merger.fragment_operation_mode ==
                            FramebufferRegs::FragmentOperationMode::Shadow;
+
+    // Effective shadow-map sampling capability, embedded in the shader cache
+    // key so that flipping the runtime toggle immediately switches scene
+    // shaders between real shadow sampling and the neutral "fully lit" stubs.
+    state.shadow_sampling =
+        AllowShadow && (regs.texturing.texture0.type ==
+                            TexturingRegs::TextureConfig::TextureType::Shadow2D ||
+                        regs.texturing.texture0.type ==
+                            TexturingRegs::TextureConfig::TextureType::ShadowCube);
 
     state.shadow_texture_orthographic = regs.texturing.shadow.orthographic != 0;
 
@@ -344,9 +350,15 @@ static std::string SampleTexture(const PicaFSConfig& config, unsigned texture_un
         case TexturingRegs::TextureConfig::TextureCube:
             return "texture(tex_cube, vec3(texcoord0, texcoord0_w))";
         case TexturingRegs::TextureConfig::Shadow2D:
-            return "shadowTexture(texcoord0, texcoord0_w)";
+            // Shadow map sampling goes through the texcolor0 variable as well
+            // (matches the shipped MMJ build's generated shaders, where the
+            // fetch is emitted once as "vec4 texcolor0 = shadowTexture(...)"
+            // instead of being inlined into every TEV source reference).
+            s_use_texcolor0 = true;
+            return "texcolor0";
         case TexturingRegs::TextureConfig::ShadowCube:
-            return "shadowTextureCube(texcoord0, texcoord0_w)";
+            s_use_texcolor0 = true;
+            return "texcolor0";
         case TexturingRegs::TextureConfig::Disabled:
             return "vec4(0.0)";
         default:
@@ -1309,12 +1321,19 @@ static void AppendProcLogicOp(std::string& out, FramebufferRegs::LogicOp logic_o
     out += "color = vec4(vec3(new_color & 255) * (1.0 / 255.0), byteround(last_tex_env_out.a));\n";
 }
 
-static void AppendShadowRendering(std::string& out, const PicaFSConfig& config) {
-    // Full helper set for the shadow-map write draw, byte-identical to the
-    // shipped MMJ build (verified against its shader dump). DecodeShadow is
-    // shared by the sampling functions and the write loop, EncodeShadow by the
-    // write loop only; both are emitted together so the write path always has
-    // the complete set.
+static void AppendShadowSampling(std::string& out, const PicaFSConfig& config) {
+    // Full shadow helper set for shaders that need it:
+    //  * shadow-map write draws use DecodeShadow/EncodeShadow in the
+    //    compare-and-swap loop at the end of main();
+    //  * scene draws that sample the shadow map (texture0 type Shadow2D /
+    //    ShadowCube) additionally use the sampling functions below.
+    // The GLSL matches the working MMJ build's shader dumps. Most importantly,
+    // shadowTexture() maps uv onto the *integer texel lattice*
+    // ((imageSize - 1) * uv) instead of the previous half-texel-offset form
+    // (imageSize * uv - 0.5): the write side stores texel indices via
+    // ivec2(gl_FragCoord.xy), so sampling must reconstruct the same lattice,
+    // otherwise the shadow map is read with a half-texel shift and shadows
+    // render wrong or not at all.
     out += R"(
 uvec2 DecodeShadow(uint pixel) {
     return uvec2(pixel >> 8, pixel & 255u);
@@ -1330,7 +1349,7 @@ float CompareShadow(uint pixel, uint z) {
 }
 
 float SampleShadow2D(ivec2 uv, uint z) {
-    if (any(bvec4( lessThan(uv, ivec2(0)), greaterThanEqual(uv, imageSize(shadow_texture_px)) )))
+    if (any(bvec4(lessThan(uv, ivec2(0)), greaterThanEqual(uv, imageSize(shadow_texture_px)))))
         return 1.0;
     return CompareShadow(imageLoad(shadow_texture_px, uv).x, z);
 }
@@ -1339,7 +1358,19 @@ float mix2(vec4 s, vec2 a) {
     vec2 t = mix(s.xy, s.zw, a.yy);
     return mix(t.x, t.y, a.x);
 }
-
+)";
+    // The sampling functions below reference the shadow_texture_* image
+    // uniforms, so they are only emitted when texture0 actually is a shadow
+    // map - the matching layout(binding=N) declarations in
+    // GenerateFragmentShader cover exactly the same condition. Write-only
+    // draws (fragment_operation_mode == Shadow with no shadow texture bound)
+    // keep just DecodeShadow/EncodeShadow, which is exactly what the working
+    // MMJ build's write shaders contain.
+    if (config.state.texture0_type != TexturingRegs::TextureConfig::Shadow2D &&
+        config.state.texture0_type != TexturingRegs::TextureConfig::ShadowCube) {
+        return;
+    }
+    out += R"(
 vec4 shadowTexture(vec2 uv, float w) {
 )";
     if (!config.state.shadow_texture_orthographic) {
@@ -1348,7 +1379,7 @@ vec4 shadowTexture(vec2 uv, float w) {
     out +=
         "uint z = uint(max(0, int(min(abs(w), 1.0) * (exp2(24.0) - 1.0)) - shadow_texture_bias));";
     out += R"(
-    vec2 coord = vec2(imageSize(shadow_texture_px)) * uv - vec2(0.5);
+    vec2 coord = vec2(imageSize(shadow_texture_px) - ivec2(1)) * uv;
     vec2 coord_floor = floor(coord);
     vec2 f = coord - coord_floor;
     ivec2 i = ivec2(coord_floor);
@@ -1359,7 +1390,9 @@ vec4 shadowTexture(vec2 uv, float w) {
         SampleShadow2D(i + ivec2(1, 1), z));
     return vec4(mix2(s, f));
 }
-
+)";
+    if (config.state.texture0_type == TexturingRegs::TextureConfig::ShadowCube) {
+        out += R"(
 vec4 shadowTextureCube(vec2 uv, float w) {
     ivec2 size = imageSize(shadow_texture_px);
     vec3 c = vec3(uv, w);
@@ -1443,6 +1476,7 @@ vec4 shadowTextureCube(vec2 uv, float w) {
     return vec4(mix2(s, f));
 }
 )";
+    }
 }
 
 std::string GenerateFragmentShader(const PicaFSConfig& config, bool separable_shader) {
@@ -1452,8 +1486,8 @@ std::string GenerateFragmentShader(const PicaFSConfig& config, bool separable_sh
     // (fragment operation mode == Shadow). The AllowShadow gate is already
     // embedded in state.shadow_rendering (see PicaFSConfig::BuildFromRegs), so
     // a runtime toggle flip simply produces a different config key and this
-    // flag follows. Scene draws (the flag false) get the neutral stubs, which
-    // is exactly what the shipped MMJ build generates.
+    // flag follows. Scene draws that sample the shadow map are gated by
+    // state.shadow_sampling (same AllowShadow embedding); see below.
     bool shadow_rendering = state.shadow_rendering;
     bool shader_logic_ops = false;
 
@@ -1506,19 +1540,32 @@ uniform samplerBuffer texture_buffer_lut_rg;
 uniform samplerBuffer texture_buffer_lut_rgba;
 )";
 
+    // Shadow image declarations. The explicit layout(binding=N) qualifiers
+    // MUST match the ImageUnits namespace in gl_state.h (ShadowBuffer=0,
+    // ShadowTexturePX=1 ... ShadowTextureNZ=6) - the working MMJ build emits
+    // the same bindings and relies on them instead of glUniform1i calls.
+    // Scene draws that sample the shadow map (state.shadow_sampling) declare
+    // the sampling image(s); the shadow-map write draw
+    // (fragment_operation_mode == Shadow) declares only the write buffer.
+    if (state.shadow_sampling) {
+        if (state.texture0_type == TexturingRegs::TextureConfig::Shadow2D) {
+            out += R"(
+layout(binding=1, r32ui) uniform readonly uimage2D shadow_texture_px;
+)";
+        } else {
+            out += R"(
+layout(binding=1, r32ui) uniform readonly uimage2D shadow_texture_px;
+layout(binding=2, r32ui) uniform readonly uimage2D shadow_texture_nx;
+layout(binding=3, r32ui) uniform readonly uimage2D shadow_texture_py;
+layout(binding=4, r32ui) uniform readonly uimage2D shadow_texture_ny;
+layout(binding=5, r32ui) uniform readonly uimage2D shadow_texture_pz;
+layout(binding=6, r32ui) uniform readonly uimage2D shadow_texture_nz;
+)";
+        }
+    }
     if (shadow_rendering) {
-        // Shadow-map write draw: all seven image uniforms are declared
-        // together, byte-identical to the shipped MMJ build (the sampling
-        // helpers below reference the six shadow_texture_* images even inside
-        // the write shader, so they must all exist).
         out += R"(
-layout(r32ui) uniform readonly uimage2D shadow_texture_px;
-layout(r32ui) uniform readonly uimage2D shadow_texture_nx;
-layout(r32ui) uniform readonly uimage2D shadow_texture_py;
-layout(r32ui) uniform readonly uimage2D shadow_texture_ny;
-layout(r32ui) uniform readonly uimage2D shadow_texture_pz;
-layout(r32ui) uniform readonly uimage2D shadow_texture_nz;
-layout(r32ui) uniform uimage2D shadow_buffer;
+layout(binding=0, r32ui) uniform uimage2D shadow_buffer;
 )";
     }
 
@@ -1574,10 +1621,24 @@ float getLod(vec2 coord) {
 }
 )";
 
-    if (shadow_rendering) {
-        AppendShadowRendering(out, config);
-    } else {
-        // Shadow rendering is disabled (or this is a scene draw): keep the
+    // Shadow helper functions, emitted after getLod and before main() -
+    // exactly where the working MMJ build places them (verified against its
+    // shader dumps):
+    //  * the shadow-map write draw only needs DecodeShadow/EncodeShadow for
+    //    the compare-and-swap loop at the end of main();
+    //  * scene draws that sample the shadow map (texture0 type Shadow2D /
+    //    ShadowCube) get the full sampling set with explicit image bindings
+    //    declared above. Previously this generator emitted neutral stubs
+    //    returning vec4(1.0) for every scene draw, which permanently forced
+    //    the shadow contribution to "fully lit" - that is why shadows never
+    //    showed up even though the shadow map itself was rendered.
+    //  * scene draws that cannot touch the shadow map get no shadow code at
+    //    all (the working build does the same, keeping shaders small).
+    if (shadow_rendering || state.shadow_sampling) {
+        AppendShadowSampling(out, config);
+    } else if (state.texture0_type == TexturingRegs::TextureConfig::Shadow2D ||
+               state.texture0_type == TexturingRegs::TextureConfig::ShadowCube) {
+        // Shadow rendering was disabled through the runtime toggle: keep the
         // neutral stubs so shaders referencing the sampling functions still
         // compile, with the shadow contribution fixed to "fully lit".
         out += R"(
@@ -1650,8 +1711,16 @@ vec4 secondary_fragment_color = vec4(0.0);
         WriteLighting(lighting_codes, config);
 
     if (s_use_texcolor0) {
-        out += "vec4 texcolor0 = textureLod(tex0, texcoord0, getLod(texcoord0 * "
-               "vec2(textureSize(tex0, 0))));\n";
+        if (state.texture0_type == TexturingRegs::TextureConfig::Shadow2D) {
+            // Shadow map fetch: image load/store path, one call assigned to
+            // texcolor0 (matches the shipped MMJ build's shader dumps).
+            out += "vec4 texcolor0 = shadowTexture(texcoord0, texcoord0_w);\n";
+        } else if (state.texture0_type == TexturingRegs::TextureConfig::ShadowCube) {
+            out += "vec4 texcolor0 = shadowTextureCube(texcoord0, texcoord0_w);\n";
+        } else {
+            out += "vec4 texcolor0 = textureLod(tex0, texcoord0, getLod(texcoord0 * "
+                   "vec2(textureSize(tex0, 0))));\n";
+        }
     }
     if (s_use_texcolor1) {
         out += "vec4 texcolor1 = textureLod(tex1, texcoord1, getLod(texcoord1 * "
@@ -1702,18 +1771,17 @@ vec4 secondary_fragment_color = vec4(0.0);
     }
 
     if (shadow_rendering) {
+        // Shadow-map write loop, byte-matched to the working MMJ build's
+        // shader dumps: fragments whose depth is not nearer than the stored
+        // one return early instead of churning the atomic compare-and-swap.
         out += R"(
 uint d = uint(clamp(depth, 0.0, 1.0) * (exp2(24.0) - 1.0));
 uint s = uint(last_tex_env_out.g * 255.0);
 ivec2 image_coord = ivec2(gl_FragCoord.xy);
-
 uint old = imageLoad(shadow_buffer, image_coord).x;
-uint new;
-uint old2;
+uint new, old2;
 do {
-    old2 = old;
-
-    uvec2 ref = DecodeShadow(old);
+    uvec2 ref = DecodeShadow(old); new = old; old2 = old;
     if (d < ref.x) {
         if (s == 0u) {
             ref.x = d;
@@ -1721,9 +1789,10 @@ do {
             s = uint(float(s) / (shadow_bias_constant + shadow_bias_linear * float(d) / float(ref.x)));
             ref.y = min(s, ref.y);
         }
+        new = EncodeShadow(ref);
+    } else {
+        return;
     }
-    new = EncodeShadow(ref);
-
 } while ((old = imageAtomicCompSwap(shadow_buffer, image_coord, old, new)) != old2);
 )";
     } else {

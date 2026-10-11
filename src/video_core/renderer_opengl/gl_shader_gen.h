@@ -119,17 +119,18 @@ struct PicaFSConfigState {
     // bit is what makes the in-game toggle take effect immediately: flipping
     // the toggle changes the key, so UseFragmentShader() selects/generates a
     // different shader instead of reusing the stale one.
-    //
-    // Scene draws that merely SAMPLE the shadow map (texture0 type Shadow2D /
-    // ShadowCube, or lighting shadow) keep using the neutral stub
-    // shadowTexture()/shadowTextureCube() (vec4(1.0)) - exactly like the
-    // shipped MMJ build does. Only the shadow-map write draw gets the real
-    // image load/store code; the written shadow map is consumed through the
-    // rasterizer cache (the surface memory is invalidated after the draw and
-    // the game reads it back as a regular texture), which is the behaviour the
-    // shipped, working MMJ binary exhibits (verified against its shader dump:
-    // 151 stub scene shaders + 1 full shadow-write shader).
     bool shadow_rendering;
+
+    // Effective "shadow map sampling" flag: true iff shadow rendering is
+    // allowed AND texture0 is a shadow map (type Shadow2D / ShadowCube).
+    // Scene draws with this bit set get the real imageLoad-based sampling
+    // functions plus the matching layout(binding=N) image declarations - this
+    // is what makes dynamic shadows actually appear in the scene (the shipped,
+    // working MMJ build generates exactly such shaders; verified against its
+    // shader dumps). When the bit is clear because the user disabled the
+    // toggle, sampling shaders still compile but sample neutral stubs
+    // (vec4(1.0) = fully lit) so the game stays playable.
+    bool shadow_sampling;
     bool shadow_texture_orthographic;
 };
 
