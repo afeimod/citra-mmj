@@ -76,10 +76,12 @@ public final class GameFilePickerActivity extends FilePickerActivity implements 
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.menu_current_directory:
-                showEditorDialog();
-                return true;
+        // R.id 在 AGP 8.x（nonFinalResIds 默认 true）下不是编译期常量，
+        // switch-case 会报 "constant expression required"，改用 if-else
+        int id = item.getItemId();
+        if (id == R.id.menu_current_directory) {
+            showEditorDialog();
+            return true;
         }
 
         return false;

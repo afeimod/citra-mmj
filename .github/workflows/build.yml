@@ -137,6 +137,14 @@ jobs:
           #      'function' in namespace 'std'"
           python3 .github/scripts/fix-src-settings.py
 
+          # --- nonFinalResIds 自愈（幂等）：AGP 8.x 后期默认 true，R 字段非
+          #     final，switch(R.id.x) 报 "constant expression required"（CI
+          #     实测 17 errors）。Java 层已全部改 if-else，此项为双保险。
+          if ! grep -q '^android.nonFinalResIds=false' src/android/gradle.properties; then
+            echo 'android.nonFinalResIds=false' >> src/android/gradle.properties
+            echo '>>> Appended android.nonFinalResIds=false to gradle.properties'
+          fi
+
           # --- minSdk 自愈（幂等）：新源码把 minSdk 从旧仓库的 28 回退成 24 ---
           # AGP externalNativeBuild 默认用 minSdkVersion 作为 native 编译平台
           # (ANDROID_PLATFORM)。minSdk 24 时按 android-24 (__ANDROID_API__=24)
