@@ -58,7 +58,7 @@ public final class GameFilePickerActivity extends FilePickerActivity implements 
             if (file.isDirectory())
                 return true;
             if (mode == MODE_FILE)
-                return file.getName().endsWith(".cia");
+                return file.getName().toLowerCase().endsWith(".cia");
             return NativeLibrary.isValidFile(file.getName());
         }
 

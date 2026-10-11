@@ -7,6 +7,7 @@
 package com.nononsenseapps.filepicker;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.citra.emu.R;
+import org.citra.emu.utils.PermissionsHandler;
 
 /**
  * An implementation of the picker which allows you to select a file from the internal/external
@@ -60,11 +62,32 @@ public class FilePickerFragment extends AbstractFilePickerFragment<File> {
         return showHiddenItems;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Returning from the "All files access" system settings page (Android 11+):
+        // the runtime permission callback is never invoked in that flow, so re-check
+        // here and load the requested directory instead of showing an empty picker.
+        if (mRequestedPath != null && hasPermission(mRequestedPath)) {
+            refresh(mRequestedPath);
+            mRequestedPath = null;
+        }
+    }
+
     /**
      * @return true if app has been granted permission to write to the SD-card.
      */
     @Override
     protected boolean hasPermission(@NonNull File path) {
+        // Android 11+ (R+): WRITE_EXTERNAL_STORAGE is declared with
+        // maxSdkVersion="29" in the manifest and can never be granted by the
+        // system anymore. Requesting it only produced an instant denial and the
+        // toast "Permission to access filesystem denied", making every file pick
+        // (installing CIA files as well as adding game directories) fail. The app
+        // instead uses MANAGE_EXTERNAL_STORAGE ("All files access"), so accept it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
         return PackageManager.PERMISSION_GRANTED ==
             ContextCompat.checkSelfPermission(getContext(),
                                               Manifest.permission.WRITE_EXTERNAL_STORAGE);
@@ -75,11 +98,17 @@ public class FilePickerFragment extends AbstractFilePickerFragment<File> {
      */
     @Override
     protected void handlePermission(@NonNull File path) {
-        //         Should we show an explanation?
-        //        if (shouldShowRequestPermissionRationale(
-        //                Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-        //             Explain to the user why we need permission
-        //        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // The runtime dialog for WRITE_EXTERNAL_STORAGE cannot be granted on
+            // R+; guide the user to the "All files access" settings page instead
+            // (same flow the app already uses at startup).
+            mRequestedPath = path;
+            Activity activity = getActivity();
+            if (activity != null) {
+                PermissionsHandler.checkManageStoragePermission(activity);
+            }
+            return;
+        }
 
         mRequestedPath = path;
         requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE},
