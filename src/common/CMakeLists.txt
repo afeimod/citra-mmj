@@ -14,7 +14,13 @@ if ($ENV{CI})
     set(BUILD_TAG $ENV{BITRISE_GIT_TAG})
   endif()
   # regex capture the string nightly or canary into CMAKE_MATCH_1
-  string(REGEX MATCH "citra-emu/citra-?(.*)" OUTVAR ${BUILD_REPOSITORY})
+  # 防御：GitHub Actions 等未识别的 CI 会带着 CI=true 进到这里，
+  # BUILD_REPOSITORY 为空时 string(REGEX MATCH) 只有 4 个参数，
+  # configure 会直接报错终止（"needs at least 5 arguments"）。
+  set(CMAKE_MATCH_COUNT 0)
+  if (BUILD_REPOSITORY)
+    string(REGEX MATCH "citra-emu/citra-?(.*)" OUTVAR ${BUILD_REPOSITORY})
+  endif()
   if (${CMAKE_MATCH_COUNT} GREATER 0)
     # capitalize the first letter of each word in the repo name.
     string(REPLACE "-" ";" REPO_NAME_LIST ${CMAKE_MATCH_1})

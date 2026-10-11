@@ -171,6 +171,11 @@ jobs:
         working-directory: src/android
         env:
           BUILD_TYPE: ${{ github.event.inputs.build_type }}
+          # src/common/CMakeLists.txt 用 $ENV{CI} 做官方 CI 品牌识别，
+          # GitHub Actions 默认 CI=true 会进入 citra-emu 识别分支，
+          # 因仓库名不匹配导致 string(REGEX MATCH) 参数不足而崩溃；
+          # 置 0 让 CMake 跳过该分支（旧仓库构建同款设置）
+          CI: "0"
         run: |
           set -o pipefail
           if [ "$BUILD_TYPE" = "debug" ]; then
