@@ -465,16 +465,22 @@ public class RunningSettingDialog extends DialogFragment {
 
         @Override
         public void onCheckedChanged(RadioGroup group, int checkedId) {
-            if (checkedId == R.id.radio0) {
-                mItem.setValue(0);
-            } else if (checkedId == R.id.radio1) {
-                mItem.setValue(1);
-            } else if (checkedId == R.id.radio2) {
-                mItem.setValue(2);
-            } else if (checkedId == R.id.radio3) {
-                mItem.setValue(3);
-            } else {
-                mItem.setValue(0);
+            switch (checkedId) {
+                case R.id.radio0:
+                    mItem.setValue(0);
+                    break;
+                case R.id.radio1:
+                    mItem.setValue(1);
+                    break;
+                case R.id.radio2:
+                    mItem.setValue(2);
+                    break;
+                case R.id.radio3:
+                    mItem.setValue(3);
+                    break;
+                default:
+                    mItem.setValue(0);
+                    break;
             }
         }
     }
@@ -646,9 +652,8 @@ public class RunningSettingDialog extends DialogFragment {
             mSettings.add(new SettingsItem(SettingsItem.SETTING_ASYNC_SHADER_COMPILE,
                     R.string.setting_async_shader_compile,
                     SettingsItem.TYPE_CHECKBOX, mRunningSettings[i++]));
-            mSettings.add(new SettingsItem(SettingsItem.SETTING_USE_COMPATIBLE_MODE,
-                    R.string.setting_use_compatible_mode,
-                    SettingsItem.TYPE_CHECKBOX, mRunningSettings[i++]));
+            // 注意：native 端 getRunningSettings/setRunningSettings 各 13 项（无兼容模式），
+            // 这里必须与之一一对应，否则设置数组错位（分辨率/布局等全部串位）
             mSettings.add(new SettingsItem(SettingsItem.SETTING_SCALE_FACTOR,
                     R.string.running_resolution, SettingsItem.TYPE_RADIO_GROUP,
                     mRunningSettings[i++]));

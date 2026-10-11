@@ -104,7 +104,7 @@ void Config::ReadAudioValues() {
     qt_config->beginGroup(QStringLiteral("Audio"));
 
     Settings::values.enable_dsp_lle = ReadSetting(QStringLiteral("enable_dsp_lle"), false).toBool();
-    Settings::values.enable_dsp_lle_multithread =
+    Settings::values.dsp_lle_multithread =
         ReadSetting(QStringLiteral("enable_dsp_lle_multithread"), false).toBool();
     Settings::values.sink_id = ReadSetting(QStringLiteral("output_engine"), QStringLiteral("auto"))
                                    .toString()
@@ -115,7 +115,7 @@ void Config::ReadAudioValues() {
         ReadSetting(QStringLiteral("output_device"), QStringLiteral("auto"))
             .toString()
             .toStdString();
-    Settings::values.volume = ReadSetting(QStringLiteral("volume"), 1).toFloat();
+    Settings::values.audio_volume = ReadSetting(QStringLiteral("volume"), 1).toFloat();
     Settings::values.mic_input_type = static_cast<Settings::MicInputType>(
         ReadSetting(QStringLiteral("mic_input_type"), 0).toInt());
     Settings::values.mic_input_device =
@@ -682,14 +682,14 @@ void Config::SaveAudioValues() {
 
     WriteSetting(QStringLiteral("enable_dsp_lle"), Settings::values.enable_dsp_lle, false);
     WriteSetting(QStringLiteral("enable_dsp_lle_multithread"),
-                 Settings::values.enable_dsp_lle_multithread, false);
+                 Settings::values.dsp_lle_multithread, false);
     WriteSetting(QStringLiteral("output_engine"), QString::fromStdString(Settings::values.sink_id),
                  QStringLiteral("auto"));
     WriteSetting(QStringLiteral("enable_audio_stretching"),
                  Settings::values.enable_audio_stretching, true);
     WriteSetting(QStringLiteral("output_device"),
                  QString::fromStdString(Settings::values.audio_device_id), QStringLiteral("auto"));
-    WriteSetting(QStringLiteral("volume"), Settings::values.volume, 1.0f);
+    WriteSetting(QStringLiteral("volume"), Settings::values.audio_volume, 1.0f);
     WriteSetting(QStringLiteral("mic_input_device"),
                  QString::fromStdString(Settings::values.mic_input_device),
                  QString::fromUtf8(Frontend::Mic::default_device_name));

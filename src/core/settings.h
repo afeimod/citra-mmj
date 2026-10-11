@@ -186,11 +186,11 @@ struct Values {
 
     // Audio
     bool enable_dsp_lle;
-    bool enable_dsp_lle_multithread;
+    bool dsp_lle_multithread;
     std::string sink_id;
     bool enable_audio_stretching;
     std::string audio_device_id;
-    float volume;
+    float audio_volume;
     float mic_volume;
     MicInputType mic_input_type;
     std::string mic_input_device;
@@ -230,14 +230,9 @@ struct Values {
     AccurateMul shaders_accurate_mul;
     std::string remote_shader_host;
     u8 hw_gs_mode;
-    u8 force_texture_filter;
-    bool allow_shadow = false;
-    bool display_transfer_hack = false;
-    bool use_linear_filter = false;
-    bool y2r_perform_hack = false;
-    bool preload_textures = false;
     bool use_hw_gs = false;
-    bool enable_telemetry = false;
+    bool allow_shadow = false;
+    u8 force_texture_filter;
     float joystick_range;
     float joystick_deadzone;
 

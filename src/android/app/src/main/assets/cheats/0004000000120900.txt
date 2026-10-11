@@ -1,4 +1,0 @@
-* Lord of Magna - Maiden Heaven
-
-[60 FPS]
-00340F18 00000001

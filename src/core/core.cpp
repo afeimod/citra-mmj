@@ -433,7 +433,7 @@ System::ResultStatus System::Init(Frontend::EmuWindow& emu_window, u32 system_mo
 
     if (Settings::values.enable_dsp_lle) {
         dsp_core = std::make_unique<AudioCore::DspLle>(*memory,
-                                                       Settings::values.enable_dsp_lle_multithread);
+                                                       Settings::values.dsp_lle_multithread);
     } else {
         dsp_core = std::make_unique<AudioCore::DspHle>(*memory);
     }

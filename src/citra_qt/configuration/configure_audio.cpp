@@ -61,12 +61,12 @@ void ConfigureAudio::SetConfiguration() {
     SetAudioDeviceFromDeviceID();
 
     ui->toggle_audio_stretching->setChecked(Settings::values.enable_audio_stretching);
-    ui->volume_slider->setValue(Settings::values.volume * ui->volume_slider->maximum());
+    ui->volume_slider->setValue(Settings::values.audio_volume * ui->volume_slider->maximum());
     SetVolumeIndicatorText(ui->volume_slider->sliderPosition());
 
     int selection;
     if (Settings::values.enable_dsp_lle) {
-        if (Settings::values.enable_dsp_lle_multithread) {
+        if (Settings::values.dsp_lle_multithread) {
             selection = 2;
         } else {
             selection = 1;
@@ -122,10 +122,10 @@ void ConfigureAudio::ApplyConfiguration() {
     Settings::values.audio_device_id =
         ui->audio_device_combo_box->itemText(ui->audio_device_combo_box->currentIndex())
             .toStdString();
-    Settings::values.volume =
+    Settings::values.audio_volume =
         static_cast<float>(ui->volume_slider->sliderPosition()) / ui->volume_slider->maximum();
     Settings::values.enable_dsp_lle = ui->emulation_combo_box->currentIndex() != 0;
-    Settings::values.enable_dsp_lle_multithread = ui->emulation_combo_box->currentIndex() == 2;
+    Settings::values.dsp_lle_multithread = ui->emulation_combo_box->currentIndex() == 2;
     Settings::values.mic_input_type =
         static_cast<Settings::MicInputType>(ui->input_type_combo_box->currentIndex());
 

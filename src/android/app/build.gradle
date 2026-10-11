@@ -8,17 +8,18 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+
     defaultConfig {
         applicationId "org.citra.emu"
-        minSdkVersion 28
+        minSdkVersion 24
         targetSdkVersion 31
         versionCode(getBuildVersionCode())
         versionName "${getVersion()}"
     }
 
-    // 签名配置：用户要求自己用 MT 管理器签名，CI 不签了。
+    // 签名配置：用户自己用 MT 管理器签名，构建不依赖本机密钥路径。
     // release 构建出 unsigned APK，用户下载后用 MT Manager / apksigner 自己签。
-    // 如果将来要在 CI 内自动签名，把 src/android/keystore.properties 文件放进来即可
+    // 如果要自动签名，把 src/android/keystore.properties 文件放进来即可
     // （keyAlias / keyPassword / storeFile / storePassword 四个字段），下面会自动启用。
     def keystorePropertiesFile = rootProject.file("keystore.properties")
     def keystoreProperties = new Properties()
@@ -29,7 +30,6 @@ android {
     signingConfigs {
         release {
             // 仅当 keystore.properties 文件存在时才配置签名；否则 release 出 unsigned APK
-            // （Gradle 不会自动添加 signingConfig 到 release，除非显式 signingConfig signingConfigs.release）
             if (keystoreProperties.getProperty('storeFile') != null) {
                 keyAlias keystoreProperties.getProperty('keyAlias')
                 keyPassword keystoreProperties.getProperty('keyPassword')
@@ -40,20 +40,22 @@ android {
         }
     }
 
+    // Define build types, which are orthogonal to product flavors.
     buildTypes {
-        // release 构建出 unsigned APK；用户用 MT Manager / apksigner 自己签。
-        // 如果 src/android/keystore.properties 存在，下面会自动启用签名。
+        // 有 keystore.properties 则自动签名；否则出 unsigned APK（MT 管理器/apksigner 自签）
         release {
             if (rootProject.file("keystore.properties").exists()) {
                 signingConfig signingConfigs.release
             }
-            // 没有 keystore.properties 时不出 signingConfig → unsigned APK
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
 
+        // Signed by debug key disallowing distribution on Play Store.
+        // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         debug {
+            // TODO If this is ever modified, change application_id in debug/strings.xml
             applicationIdSuffix ".debug"
             versionNameSuffix '-debug'
             jniDebuggable true
@@ -76,10 +78,10 @@ android {
     defaultConfig {
         externalNativeBuild {
             cmake {
-                arguments "-DENABLE_QT=0",        // Don't use QT
-                        "-DENABLE_SDL2=0",        // Don't use SDL
+                arguments "-DENABLE_QT=0", // Don't use QT
+                        "-DENABLE_SDL2=0", // Don't use SDL
                         "-DENABLE_WEB_SERVICE=0", // Don't use web services
-                        "-DANDROID_ARM_NEON=true",// cryptopp requires Neon to work
+                        "-DANDROID_ARM_NEON=true", // cryptopp requires Neon to work
                         "-DENABLE_CUBEB=1",
                         "-DANDROID_STL=c++_static",
                         "-DCMAKE_BUILD_TYPE=Release",

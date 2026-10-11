@@ -354,14 +354,8 @@ public final class CitraDirectory {
                 if (entry.isDirectory()) {
                     continue;
                 }
-                // background glsl
-                if ("background.glsl".equals(entry.getName())) {
-                    ByteArrayOutputStream output = new ByteArrayOutputStream();
-                    copyFile(zipIn, output);
-                    NativeLibrary.SetBackgroundGLSL(output.toString());
-                    continue;
-                }
                 // buttons and background images
+                // （background.glsl 自定义背景着色器功能已随新源码移除，主题包里的该文件直接跳过）
                 for (int i = 0; i < inputNames.length; ++i) {
                     if (inputNames[i].equals(entry.getName())) {
                         inputs.put(inputIds[i], BitmapFactory.decodeStream(zipIn));

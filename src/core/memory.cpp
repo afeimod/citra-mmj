@@ -142,10 +142,6 @@ void MemorySystem::UnregisterPageTable(PageTable* page_table) {
 
 template <typename T>
 T MemorySystem::Read(const VAddr vaddr) {
-    if (!impl->current_page_table) {
-        LOG_ERROR(HW_Memory, "Read{} @ 0x{:08X} with null page table!", sizeof(T) * 8, vaddr);
-        return 0;
-    }
     const u8* page_pointer = impl->current_page_table->pointers[vaddr >> PAGE_BITS];
     if (page_pointer) {
         // NOTE: Avoid adding any extra logic to this fast-path block
@@ -175,10 +171,6 @@ T MemorySystem::Read(const VAddr vaddr) {
 
 template <typename T>
 void MemorySystem::Write(const VAddr vaddr, const T data) {
-    if (!impl->current_page_table) {
-        LOG_ERROR(HW_Memory, "Write{} @ 0x{:08X} with null page table!", sizeof(T) * 8, vaddr);
-        return;
-    }
     u8* page_pointer = impl->current_page_table->pointers[vaddr >> PAGE_BITS];
     if (page_pointer) {
         // NOTE: Avoid adding any extra logic to this fast-path block
@@ -344,18 +336,15 @@ void MemorySystem::RasterizerMarkRegionCached(PAddr start, u32 size, bool cached
 }
 
 void RasterizerFlushRegion(PAddr start, u32 size) {
-    auto* rasterizer = VideoCore::Rasterizer();
-    if (rasterizer) rasterizer->FlushRegion(start, size);
+    VideoCore::Rasterizer()->FlushRegion(start, size);
 }
 
 void RasterizerInvalidateRegion(PAddr start, u32 size) {
-    auto* rasterizer = VideoCore::Rasterizer();
-    if (rasterizer) rasterizer->InvalidateRegion(start, size);
+    VideoCore::Rasterizer()->InvalidateRegion(start, size);
 }
 
 void RasterizerFlushAndInvalidateRegion(PAddr start, u32 size) {
-    auto* rasterizer = VideoCore::Rasterizer();
-    if (rasterizer) rasterizer->FlushAndInvalidateRegion(start, size);
+    VideoCore::Rasterizer()->FlushAndInvalidateRegion(start, size);
 }
 
 void RasterizerFlushVirtualRegion(VAddr start, u32 size, FlushMode mode) {
@@ -373,7 +362,6 @@ void RasterizerFlushVirtualRegion(VAddr start, u32 size, FlushMode mode) {
         u32 overlap_size = overlap_end - overlap_start;
 
         auto* rasterizer = VideoCore::Rasterizer();
-        if (!rasterizer) return;
         switch (mode) {
         case FlushMode::Flush:
             rasterizer->FlushRegion(physical_start, overlap_size);

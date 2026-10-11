@@ -96,8 +96,7 @@ static void MemoryFill(const Regs::MemoryFillConfig& config) {
         return;
     }
 
-    auto* rasterizer = VideoCore::Rasterizer();
-    if (rasterizer && rasterizer->AccelerateFill(config))
+    if (VideoCore::Rasterizer()->AccelerateFill(config))
         return;
 
     Memory::RasterizerInvalidateRegion(start_addr,end_addr - start_addr);
@@ -161,8 +160,7 @@ static void DisplayTransfer(const Regs::DisplayTransferConfig& config) {
         return;
     }
 
-    auto* rasterizer2 = VideoCore::Rasterizer();
-    if (rasterizer2 && rasterizer2->AccelerateDisplayTransfer(config))
+    if (VideoCore::Rasterizer()->AccelerateDisplayTransfer(config))
         return;
 
     if (config.scaling > config.ScaleXY) {
@@ -316,8 +314,7 @@ static void TextureCopy(const Regs::DisplayTransferConfig& config) {
         return;
     }
 
-    auto* rasterizer3 = VideoCore::Rasterizer();
-    if (rasterizer3 && rasterizer3->AccelerateTextureCopy(config))
+    if (VideoCore::Rasterizer()->AccelerateTextureCopy(config))
         return;
 
     u32 remaining_size = Common::AlignDown(config.texture_copy.size, 16);

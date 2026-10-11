@@ -146,13 +146,13 @@ void BootGame(const std::string& path) {
             }
         } else {
             // Ensure no audio bleeds out while game is paused
-            const float volume = Settings::values.volume;
-            Settings::values.volume = 0;
+            const float volume = Settings::values.audio_volume;
+            Settings::values.audio_volume = 0;
 
             std::unique_lock lock{s_running_mutex};
             s_running_cv.wait(lock, [] { return s_is_running || s_stop_running; });
             s_render_window->PollEvents();
-            Settings::values.volume = volume;
+            Settings::values.audio_volume = volume;
         }
     }
 
@@ -387,13 +387,6 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_SetBackgroundImage(JNIEn
     env->DeleteLocalRef(jpixels);
 }
 
-JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_SetBackgroundGLSL(JNIEnv* env, jclass obj,
-                                                                           jstring jglsl) {
-    const char* glsl = env->GetStringUTFChars(jglsl, nullptr);
-    VideoCore::SetBackgroundGLSL(std::string(glsl));
-    env->ReleaseStringUTFChars(jglsl, glsl);
-}
-
 JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_InputEvent(JNIEnv* env, jclass obj,
                                                                    jint button, jfloat value) {
     if (InputManager::GetInstance().InputEvent(button, value)) {
@@ -474,8 +467,8 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_Run(JNIEnv* env, jclass 
     Settings::values.remote_shader_host = Config::Get(Config::REMOTE_SHADER_HOST);
     // audio
     Settings::values.enable_dsp_lle = Config::Get(Config::ENABLE_DSP_LLE);
-    Settings::values.enable_dsp_lle_multithread = Config::Get(Config::DSP_LLE_MULTITHREAD);
-    Settings::values.volume = Config::Get(Config::AUDIO_VOLUME);
+    Settings::values.dsp_lle_multithread = Config::Get(Config::DSP_LLE_MULTITHREAD);
+    Settings::values.audio_volume = Config::Get(Config::AUDIO_VOLUME);
     Settings::values.sink_id = Config::Get(Config::AUDIO_ENGINE);
     Settings::values.audio_device_id = Config::Get(Config::AUDIO_DEVICE);
     Settings::values.enable_audio_stretching = Config::Get(Config::AUDIO_STRETCHING);
@@ -569,7 +562,7 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_StopEmulation(JNIEnv* en
 JNIEXPORT jintArray JNICALL Java_org_citra_emu_NativeLibrary_getRunningSettings(JNIEnv* env,
                                                                                 jclass obj) {
     int i = 0;
-    int settings[14];
+    int settings[13];
 
     // get settings
     settings[i++] = Settings::values.core_ticks_hack > 0;
@@ -580,7 +573,6 @@ JNIEXPORT jintArray JNICALL Java_org_citra_emu_NativeLibrary_getRunningSettings(
     settings[i++] = Settings::values.use_hw_gs;
     settings[i++] = Settings::values.shadow_rendering;
     settings[i++] = Settings::values.async_shader_compile;
-    settings[i++] = Settings::values.use_compatible_mode;
     settings[i++] = std::min(std::max(Settings::values.resolution_factor - 1, 0), 3);
     settings[i++] = static_cast<int>(Settings::values.layout_option);
     settings[i++] = static_cast<int>(Settings::values.shaders_accurate_mul);
@@ -630,10 +622,6 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setRunningSettings(JNIEn
     // Async Shader Compile
     Settings::values.async_shader_compile = settings[i++] > 0;
     Config::Set(Config::ASYNC_SHADER_COMPILE, Settings::values.async_shader_compile);
-
-    // Use Compatible Mode
-    Settings::values.use_compatible_mode = settings[i++] > 0;
-    Config::Set(Config::USE_COMPATIBLE_MODE, Settings::values.use_compatible_mode);
 
     // Scale Factor
     Settings::values.resolution_factor = settings[i++] + 1;

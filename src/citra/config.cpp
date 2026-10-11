@@ -182,13 +182,13 @@ void Config::ReadValues() {
 
     // Audio
     Settings::values.enable_dsp_lle = sdl2_config->GetBoolean("Audio", "enable_dsp_lle", false);
-    Settings::values.enable_dsp_lle_multithread =
+    Settings::values.dsp_lle_multithread =
         sdl2_config->GetBoolean("Audio", "enable_dsp_lle_multithread", false);
     Settings::values.sink_id = sdl2_config->GetString("Audio", "output_engine", "auto");
     Settings::values.enable_audio_stretching =
         sdl2_config->GetBoolean("Audio", "enable_audio_stretching", true);
     Settings::values.audio_device_id = sdl2_config->GetString("Audio", "output_device", "auto");
-    Settings::values.volume = static_cast<float>(sdl2_config->GetReal("Audio", "volume", 1));
+    Settings::values.audio_volume = static_cast<float>(sdl2_config->GetReal("Audio", "volume", 1));
     Settings::values.mic_input_device =
         sdl2_config->GetString("Audio", "mic_input_device", Frontend::Mic::default_device_name);
     Settings::values.mic_input_type =
