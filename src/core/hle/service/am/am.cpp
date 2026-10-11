@@ -358,6 +358,13 @@ InstallStatus InstallCIA(const std::string& path,
         std::size_t total_bytes_read = 0;
         while (total_bytes_read != file.GetSize()) {
             std::size_t bytes_read = file.ReadBytes(buffer.data(), buffer.size());
+            if (bytes_read == 0) {
+                // Guard against providers that report a size larger than the data they
+                // actually deliver; otherwise this loop would spin forever.
+                LOG_ERROR(Service_AM, "CIA {} ended unexpectedly at {}/{} bytes", path,
+                          total_bytes_read, file.GetSize());
+                return InstallStatus::ErrorAborted;
+            }
             auto result = installFile.Write(static_cast<u64>(total_bytes_read), bytes_read, true,
                                             static_cast<u8*>(buffer.data()));
 

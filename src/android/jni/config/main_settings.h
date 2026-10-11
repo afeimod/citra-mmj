@@ -28,6 +28,8 @@ extern const ConfigInfo<Settings::SharedFontType> SHARED_FONT_TYPE;
 extern const ConfigInfo<bool> USE_GLES;
 extern const ConfigInfo<bool> SHOW_FPS;
 extern const ConfigInfo<bool> USE_HW_SHADER;
+extern const ConfigInfo<bool> USE_HW_RENDERER;
+extern const ConfigInfo<bool> USE_HW_GS;
 extern const ConfigInfo<bool> USE_SHADER_JIT;
 extern const ConfigInfo<Settings::AccurateMul> SHADERS_ACCURATE_MUL;
 extern const ConfigInfo<u16> RESOLUTION_FACTOR;
@@ -50,10 +52,14 @@ extern const ConfigInfo<float> AUDIO_VOLUME;
 extern const ConfigInfo<float> MIC_VOLUME;
 extern const ConfigInfo<u8> AUDIO_OUTPUT_TYPE;
 extern const ConfigInfo<std::string> AUDIO_OUTPUT_DEVICE;
+extern const ConfigInfo<std::string> AUDIO_ENGINE;
+extern const ConfigInfo<std::string> AUDIO_DEVICE;
 
 // mic
 extern const ConfigInfo<u8> AUDIO_INPUT_TYPE;
 extern const ConfigInfo<std::string> AUDIO_INPUT_DEVICE;
+extern const ConfigInfo<Settings::MicInputType> MIC_INPUT_TYPE;
+extern const ConfigInfo<std::string> MIC_INPUT_DEVICE;
 
 // camera
 extern const ConfigInfo<std::string> CAMERA_DEVICE;
@@ -99,10 +105,14 @@ extern const ConfigInfo<std::string> CIRCLE_PAD_UP;
 extern const ConfigInfo<std::string> CIRCLE_PAD_DOWN;
 extern const ConfigInfo<std::string> CIRCLE_PAD_LEFT;
 extern const ConfigInfo<std::string> CIRCLE_PAD_RIGHT;
+extern const ConfigInfo<std::string> CIRCLE_PAD_X;
+extern const ConfigInfo<std::string> CIRCLE_PAD_Y;
 extern const ConfigInfo<std::string> C_STICK_UP;
 extern const ConfigInfo<std::string> C_STICK_DOWN;
 extern const ConfigInfo<std::string> C_STICK_LEFT;
 extern const ConfigInfo<std::string> C_STICK_RIGHT;
+extern const ConfigInfo<std::string> C_STICK_X;
+extern const ConfigInfo<std::string> C_STICK_Y;
 extern const ConfigInfo<std::string> COMBO_KEY_0;
 extern const ConfigInfo<std::string> COMBO_KEY_1;
 extern const ConfigInfo<std::string> COMBO_KEY_2;
@@ -115,6 +125,7 @@ extern const ConfigInfo<u32> INPUT_JOYSTICK_RANGE;
 extern const ConfigInfo<u32> INPUT_JOYSTICK_DEADZONE;
 
 // custom layout
+extern const ConfigInfo<bool> USE_CUSTOM_LAYOUT;
 extern const ConfigInfo<bool> PORTRAIT_CUSTOM_LAYOUT;
 extern const ConfigInfo<bool> LANDSCAPE_CUSTOM_LAYOUT;
 

@@ -388,6 +388,13 @@ GLuint OpenGLState::BindDrawFramebuffer(GLuint framebuffer) {
     return previous;
 }
 
+GLuint OpenGLState::BindRenderbuffer(GLuint buffer) {
+    GLuint previous = cur_state.renderbuffer;
+    glBindRenderbuffer(GL_RENDERBUFFER, buffer);
+    cur_state.renderbuffer = buffer;
+    return previous;
+}
+
 GLuint OpenGLState::BindShaderProgram(GLuint program) {
     GLuint previous = cur_state.draw.shader_program;
     glUseProgram(program);
@@ -502,6 +509,13 @@ void OpenGLState::ResetFramebuffer(GLuint handle) {
     if (cur_state.draw.draw_framebuffer == handle) {
         cur_state.draw.draw_framebuffer = 0;
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    }
+}
+
+void OpenGLState::ResetRenderbuffer(GLuint handle) {
+    if (cur_state.renderbuffer == handle) {
+        cur_state.renderbuffer = 0;
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
     }
 }
 

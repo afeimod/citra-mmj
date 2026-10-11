@@ -66,6 +66,16 @@ static int GetFileStat(const std::string& filename, struct stat* buf) {
 }
 
 bool Exists(const std::string& filename) {
+    // SAF paths (content:// URIs on Android) can not be stat()ed. Try to open them
+    // through the registered IO factory instead (e.g. AndroidIOFactory -> SAFHandler).
+    // Without this, installing a CIA picked via the SAF document picker always failed
+    // with ErrorFileNotFound because Exists() returned false for content:// paths.
+    if (IsSafPath(filename)) {
+        if (!s_io_factory)
+            return false;
+        auto handler = s_io_factory->Open(filename, "rb");
+        return handler != nullptr;
+    }
     struct stat file_info;
     return (GetFileStat(filename, &file_info) == 0);
 }
@@ -532,6 +542,12 @@ IOFile::IOFile(IOFile&& other) noexcept {
 }
 
 bool IOFile::Open(const std::string& filename, const char openmode[]) {
+    if (!s_io_factory) {
+        // No IO factory registered yet (SetUserPath not called on Android).
+        m_file = nullptr;
+        m_good = false;
+        return false;
+    }
     m_file = s_io_factory->Open(filename, openmode);
     m_good = m_file != nullptr;
     return m_good;
