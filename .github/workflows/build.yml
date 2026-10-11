@@ -124,6 +124,21 @@ jobs:
           # 脚本自检不过会以退出码 1 失败，提前给出明确原因。
           python3 .github/scripts/fix-externals-cmakelists.py
 
+          # --- minSdk 自愈（幂等）：新源码把 minSdk 从旧仓库的 28 回退成 24 ---
+          # AGP externalNativeBuild 默认用 minSdkVersion 作为 native 编译平台
+          # (ANDROID_PLATFORM)。minSdk 24 时按 android-24 (__ANDROID_API__=24)
+          # 编译，cubeb 的 AAudio 后端 cubeb_aaudio.cpp 报
+          #   "error: 'AAudio_createStreamBuilder' is unavailable:
+          #    introduced in Android 26"（CI 实测，AAudio 是 Android 26 API）。
+          # 旧仓库 minSdk 28 同 NDK 29 构建成功 → 只在恰好是 24 时改回 28
+          # （用户以后手动调成其他值不会被覆盖）。
+          if grep -q 'minSdkVersion 24' src/android/app/build.gradle; then
+            echo ">>> Detected minSdkVersion 24 (breaks cubeb AAudio build), restoring 28"
+            sed -i 's/minSdkVersion 24/minSdkVersion 28/' src/android/app/build.gradle
+          fi
+          echo '--- final minSdkVersion ---'
+          grep -n 'minSdkVersion' src/android/app/build.gradle || true
+
           # --- cubeb JNI 重复符号修复 ---
           # cubeb 的 cubeb-jni-instances.h 默认 inline 定义了 cubeb_get_jni_env_for_thread()
           # 和 cubeb_jni_get_context_instance() 返回 nullptr；但本仓库 src/android/jni/jni_common.cpp

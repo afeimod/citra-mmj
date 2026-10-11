@@ -11,7 +11,14 @@ android {
 
     defaultConfig {
         applicationId "org.citra.emu"
-        minSdkVersion 24
+        // minSdk 必须是 28（与旧仓库 CI 成功构建一致）：
+        // AGP externalNativeBuild 默认用 minSdkVersion 作为 native 编译平台
+        // (ANDROID_PLATFORM)。minSdk 24 时按 android-24 (__ANDROID_API__=24) 编译，
+        // cubeb 的 AAudio 后端 (cubeb_aaudio.cpp) 里所有 AAudio API（Android 26
+        // 引入）会报 "error: 'AAudio_createStreamBuilder' is unavailable:
+        // introduced in Android 26"，构建直接失败。
+        // 旧仓库 minSdk 28 + 同款 NDK 29 构建成功 → 恢复 28。
+        minSdkVersion 28
         targetSdkVersion 31
         versionCode(getBuildVersionCode())
         versionName "${getVersion()}"
