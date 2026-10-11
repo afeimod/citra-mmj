@@ -12,6 +12,15 @@ target_include_directories(catch-single-include INTERFACE catch/single_include)
 add_subdirectory(cryptopp)
 
 # Dynarmic
+# afeimod/dynarmic-android 用 ARCHITECTURE_Aarch64（混合大小写）而非 ARCHITECTURE_ARM64。
+# 必须同时设置两个变量，否则 dynarmic 的 src/CMakeLists.txt 里
+# `elseif(ARCHITECTURE_Aarch64)` 永远不命中 → A64 backend 不编 → JIT 在 ARM64 上 crash。
+if(ARCHITECTURE_ARM64)
+    set(ARCHITECTURE "Aarch64")
+    set(ARCHITECTURE_Aarch64 1)
+elseif(ARCHITECTURE_x86_64)
+    set(ARCHITECTURE "x86_64")
+endif()
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_ARM64)
     if (ARCHITECTURE_x86_64)
         # Dynarmic will skip defining xbyak if it's already defined, we then define it below
@@ -60,7 +69,7 @@ add_subdirectory(minilzo)
 # SoundTouch
 add_subdirectory(soundtouch)
 # The SoundTouch target doesn't export the necessary include paths as properties by default
-target_include_directories(SoundTouch INTERFACE ./soundtouch/include)
+target_include_directories(SoundTouch INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/soundtouch/include>)
 
 # Teakra
 add_subdirectory(teakra)
@@ -80,6 +89,9 @@ target_include_directories(enet INTERFACE ./enet/include)
 # Cubeb
 if (ENABLE_CUBEB)
     set(BUILD_TESTS OFF CACHE BOOL "")
+    # cubeb-test 工具是 BUILD_TOOLS 控制的，不关 BUILD_TOOLS 会编 cubeb-test 链接失败
+    # （因为 cubeb-test 不链 citra-mmj 的 jni_common.cpp，引用不到 JNI hook 实现）
+    set(BUILD_TOOLS OFF CACHE BOOL "")
     add_subdirectory(cubeb EXCLUDE_FROM_ALL)
 endif()
 

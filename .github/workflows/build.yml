@@ -112,6 +112,18 @@ jobs:
                 externals/soundtouch/CMakeLists.txt
           fi
 
+          # --- externals/CMakeLists.txt 三项自愈修复（幂等，详见脚本 docstring）---
+          # 新源码回退了旧仓库已验证的 3 个修复，缺任何一项都会炸：
+          #   ① SoundTouch INTERFACE 相对路径 ./soundtouch/include
+          #      → CMake 3.31 generate 期报 "which is prefixed in the source
+          #        directory"（已用 CI 同款 cmake 3.31.6 本地复现，仅
+          #        $<BUILD_INTERFACE:> 包裹可过）
+          #   ② 缺 ARCHITECTURE_Aarch64 补块 → dynarmic A64 后端不编，
+          #      ARM64 设备 JIT 崩
+          #   ③ 缺 cubeb BUILD_TOOLS OFF → cubeb-test 链接失败
+          # 脚本自检不过会以退出码 1 失败，提前给出明确原因。
+          python3 .github/scripts/fix-externals-cmakelists.py
+
           # --- cubeb JNI 重复符号修复 ---
           # cubeb 的 cubeb-jni-instances.h 默认 inline 定义了 cubeb_get_jni_env_for_thread()
           # 和 cubeb_jni_get_context_instance() 返回 nullptr；但本仓库 src/android/jni/jni_common.cpp
