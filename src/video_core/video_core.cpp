@@ -2,6 +2,9 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <atomic>
+#include <functional>
+#include <vector>
 #include <memory>
 #include "common/logging/log.h"
 #include "core/frontend/emu_window.h"

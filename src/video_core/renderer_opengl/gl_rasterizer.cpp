@@ -3,6 +3,9 @@
 // Refer to the license.txt file included.
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <tuple>

@@ -233,6 +233,11 @@ struct Values {
     bool use_hw_gs = false;
     bool allow_shadow = false;
     u8 force_texture_filter;
+    bool display_transfer_hack = false;
+    bool use_linear_filter = false;
+    bool y2r_perform_hack = false;
+    bool preload_textures = false;
+    bool enable_telemetry = false;
     float joystick_range;
     float joystick_deadzone;
 

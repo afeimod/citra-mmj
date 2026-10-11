@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <atomic>
+#include <memory>
+#include <optional>
+#include <tuple>
 #include <chrono>
 #include <thread>
 

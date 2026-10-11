@@ -124,6 +124,19 @@ jobs:
           # 脚本自检不过会以退出码 1 失败，提前给出明确原因。
           python3 .github/scripts/fix-externals-cmakelists.py
 
+          # --- 源码级自愈（幂等，详见脚本 docstring）---
+          # 覆盖两类编译雷（Task 13 全链审计结论）：
+          #   ① settings.h 缺 5 个新源码自身引用的 bool 字段
+          #      (display_transfer_hack/use_linear_filter/y2r_perform_hack/
+          #       preload_textures/enable_telemetry) → gl_rasterizer.cpp /
+          #      core.cpp / y2r_u.cpp / telemetry_session.cpp /
+          #      main_android.cpp 报 "no member named ... in 'Settings::Values'"
+          #   ② 17 个文件直接使用 std:: 符号但未 include 对应标准头
+          #      （libc++/NDK 不透传传递 include），如 video_core.h 用
+          #      std::function 没 <functional> → "no template named
+          #      'function' in namespace 'std'"
+          python3 .github/scripts/fix-src-settings.py
+
           # --- minSdk 自愈（幂等）：新源码把 minSdk 从旧仓库的 28 回退成 24 ---
           # AGP externalNativeBuild 默认用 minSdkVersion 作为 native 编译平台
           # (ANDROID_PLATFORM)。minSdk 24 时按 android-24 (__ANDROID_API__=24)

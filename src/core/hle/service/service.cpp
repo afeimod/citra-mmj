@@ -3,6 +3,12 @@
 // Refer to the license.txt file included.
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <fmt/format.h>
 #include "common/assert.h"
 #include "common/logging/log.h"

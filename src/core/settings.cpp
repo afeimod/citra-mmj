@@ -2,6 +2,9 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <cctype>
+#include <cstddef>
+#include <string>
 #include <utility>
 #include "audio_core/dsp_interface.h"
 #include "core/core.h"

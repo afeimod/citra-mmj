@@ -1,4 +1,5 @@
 
+#include <string>
 #include "config/main_settings.h"
 #include "core/settings.h"
 

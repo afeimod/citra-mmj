@@ -1,4 +1,10 @@
 
+#include <algorithm>
+#include <functional>
+#include <map>
+#include <memory>
+#include <utility>
+#include <vector>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>

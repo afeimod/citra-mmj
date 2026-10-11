@@ -2,6 +2,11 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <algorithm>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <vector>
 #include <array>
 #include <cstring>
 #include "audio_core/dsp_interface.h"

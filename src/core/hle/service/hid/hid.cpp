@@ -4,6 +4,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
+#include <tuple>
+#include <utility>
 #include "common/logging/log.h"
 #include "core/3ds.h"
 #include "core/core.h"

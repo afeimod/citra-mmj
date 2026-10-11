@@ -1,6 +1,8 @@
 #pragma once
 
 #include <atomic>
+#include <string>
+#include <vector>
 // 本头第 9 行使用 std::function（ImageLoadedHandler）；不能依赖 <atomic> 的
 // 传递 include，libc++/NDK 不同版本下不一定带 <functional>。
 #include <functional>

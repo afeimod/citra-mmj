@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <string_view>
 #include <fmt/format.h>
 // fmt::join (定义在 fmt/ranges.h) 被 core/movie.cpp、cfg.cpp、ir_user.cpp、
 // extra_hid.cpp 使用；这些翻译单元只 include 本头 (log.h)，必须在此兜底引入，

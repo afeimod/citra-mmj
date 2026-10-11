@@ -2,6 +2,11 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <utility>
 #include <cstring>
 #include <dynarmic/A32/a32.h>
 #include <dynarmic/A32/context.h>
