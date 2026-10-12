@@ -2,6 +2,11 @@
 # 把 Citra-MMJ 的依赖当普通目录拉进 externals/（不走 submodule）。
 # 用法: bash fetch-deps.sh [--deep]
 #   默认 --depth 1（快，读代码够用）；--deep 拉完整历史。
+#
+# CITRA-MMJ 重要说明：externals/dynarmic 的 fastmem 修复必须进构建！
+#   - 仓库自带的 externals/dynarmic 是修复过的副本（带 .citra-mmj-fixed 标记）
+#   - 若目录缺失被重新拉到未修复上游，下方会自动应用 patches/dynarmic-fastmem-fix.patch
+#   - externals/CMakeLists.txt 在配置阶段硬校验修复标记，缺了直接报错拒绝构建
 set -u
 cd "$(dirname "$0")"
 D=--depth; ARG=1
@@ -37,6 +42,22 @@ fetch externals/dynarmic      https://github.com/afeimod/dynarmic-android.git
 # afeimod/dynarmic-android 是老的 citra-emu/dynarmic-android 的延续 fork。
 # 有 OLD API（Dynarmic::A32::Context 类 + include/dynarmic/A32/context.h）+ ARM64 backend（src/backend/A64/）。
 # 不需要 pin 特定 commit，master 分支保持稳定。
+#
+# CITRA-MMJ FIX（关键）：刚拉下来的上游 dynarmic 带有 fastmem 断言 bug（开启阴影渲染进游戏闪退：
+# Abort message: 'Assertion Failed!: iter != fastmem_patch_info.end()'），必须自动打补丁：
+if [ -d externals/dynarmic ] && [ ! -f externals/dynarmic/.citra-mmj-fixed ]; then
+  if grep -q "CITRA-MMJ FIX" externals/dynarmic/src/backend/A64/a32_emit_a64.cpp 2>/dev/null; then
+    touch externals/dynarmic/.citra-mmj-fixed
+    echo "  dynarmic 已含修复（补上标记）"
+  elif git -C externals/dynarmic apply --check patches/dynarmic-fastmem-fix.patch 2>/dev/null; then
+    git -C externals/dynarmic apply --whitespace=nowarn patches/dynarmic-fastmem-fix.patch \
+      && touch externals/dynarmic/.citra-mmj-fixed \
+      && echo "  ✔ 已自动应用 patches/dynarmic-fastmem-fix.patch（fastmem 崩溃修复）"
+  else
+    echo "  ✘ 警告：dynarmic 补丁无法应用（上游可能已变动），构建将被 CMake 校验拦下；"
+    echo "    请手动将修复包 externals/dynarmic 覆盖到本目录。"
+  fi
+fi
 fetch externals/xbyak         https://github.com/herumi/xbyak.git
 fetch externals/cryptopp/cryptopp https://github.com/weidai11/cryptopp.git
 # cryptopp 不在这里 pin 8.2.0 —— 8.2.0 tag 在 shallow clone 下经常拉不下来，

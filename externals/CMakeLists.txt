@@ -28,6 +28,33 @@ if (ARCHITECTURE_x86_64 OR ARCHITECTURE_ARM64)
     endif()
     option(DYNARMIC_TESTS OFF)
     set(DYNARMIC_NO_BUNDLED_FMT ON)
+    # CITRA-MMJ FIX GUARD：
+    # externals/dynarmic 必须是带 fastmem 修复的副本，否则构建出的 APK 会复现
+    #   打开阴影渲染进游戏闪退
+    #   Abort message: 'Assertion Failed!: iter != fastmem_patch_info.end()'
+    # （仓库中 dynarmic 曾是未被 git 追踪的依赖：全新 clone 后 fetch-deps.sh
+    #   拉到未修复上游 -> 修复被"git 跳过" -> 静默构建出闪退版本。）
+    # 这里在 CMake 配置期直接拦截，缺修复就报错，绝不静默放行。
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dynarmic/CMakeLists.txt")
+        message(FATAL_ERROR
+            "externals/dynarmic 不存在！\n"
+            "请先执行:  bash fetch-deps.sh\n"
+            "或把修复包里的 externals/dynarmic 原样拷贝到仓库根目录后再构建。")
+    endif()
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/dynarmic/src/backend/A64/a32_emit_a64.cpp"
+         _DYNARMIC_FASTMEM_CHECK)
+    if(NOT _DYNARMIC_FASTMEM_CHECK MATCHES "CITRA-MMJ FIX")
+        message(FATAL_ERROR
+            "============================================================\n"
+            "externals/dynarmic 缺少 fastmem 修复（未找到 CITRA-MMJ FIX 标记）！\n"
+            "直接构建将复现「开启阴影渲染进游戏闪退」：\n"
+            "  Abort message: 'Assertion Failed!: iter != fastmem_patch_info.end()'\n"
+            "请任选其一后重新构建：\n"
+            "  1) bash fetch-deps.sh        # 会自动应用 patches/dynarmic-fastmem-fix.patch\n"
+            "  2) 用修复包中的 externals/dynarmic 原样覆盖本目录\n"
+            "============================================================")
+    endif()
+    unset(_DYNARMIC_FASTMEM_CHECK)
     add_subdirectory(dynarmic)
 endif()
 

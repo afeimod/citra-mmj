@@ -1,0 +1,7 @@
+本目录是 afeimod/dynarmic-android（commit b80bde7）+ CITRA-MMJ 修复 的完整副本。
+修复内容（详见仓库根目录 修复说明.md 与 patches/dynarmic-fastmem-fix.patch）：
+  1. src/backend/A64/exception_handler_posix.cpp  FindCodeBlockInfo 恢复上界比较
+     （原缺失导致任何 SIGSEGV 被路由到第一个 JIT 实例 -> FastmemCallback 断言崩溃）
+  2. FastmemCallback 查不到补丁时返回 false 转发真实段错误，不再 ASSERT abort
+  3. RemoveCodeBlock 容忍重复删除；补丁表 insert_or_assign 防陈旧条目
+fetch-deps.sh 见此标记会跳过重新拉取，切勿删除本文件。

@@ -1,0 +1,168 @@
+diff --git a/src/backend/A64/a32_emit_a64.cpp b/src/backend/A64/a32_emit_a64.cpp
+index 11bd547..3f2acfe 100644
+--- a/src/backend/A64/a32_emit_a64.cpp
++++ b/src/backend/A64/a32_emit_a64.cpp
+@@ -83,7 +83,7 @@ std::ptrdiff_t A32EmitContext::GetInstOffset(IR::Inst* inst) const {
+ 
+ A32EmitA64::A32EmitA64(BlockOfCode& code, A32::UserConfig config, A32::Jit* jit_interface)
+     : EmitA64(code), config(std::move(config)), jit_interface(jit_interface) {
+-    exception_handler.Register(code, [this](CodePtr PC){FastmemCallback(PC);});
++    exception_handler.Register(code, [this](CodePtr PC){ return FastmemCallback(PC); });
+     GenMemoryAccessors();
+     GenTerminalHandlers();
+     code.PreludeComplete();
+@@ -880,7 +880,7 @@ void A32EmitA64::ReadMemory(A32EmitContext& ctx, IR::Inst* inst, const CodePtr c
+                 break;
+         }
+ 
+-        fastmem_patch_info.emplace(
++        fastmem_patch_info.insert_or_assign(
+                 patch_location,
+                 FastmemPatchInfo{
+                         [this, patch_location, page_table_lookup, callback_fn, result, do_not_fastmem_marker]{
+@@ -992,7 +992,7 @@ void A32EmitA64::WriteMemory(A32EmitContext& ctx, IR::Inst* inst, const CodePtr
+                 break;
+         }
+ 
+-        fastmem_patch_info.emplace(
++        fastmem_patch_info.insert_or_assign(
+                 patch_location,
+                 FastmemPatchInfo{
+                         [this, patch_location, page_table_lookup, callback_fn, do_not_fastmem_marker]{
+@@ -1390,11 +1390,23 @@ std::string A32EmitA64::LocationDescriptorToFriendlyName(const IR::LocationDescr
+                        descriptor.FPSCR().Value());
+ }
+ 
+-void A32EmitA64::FastmemCallback(CodePtr PC) {
++bool A32EmitA64::FastmemCallback(CodePtr PC) {
++    // CITRA-MMJ FIX: this is registered as the SIGSEGV handler callback for the
++    // JIT code region. It used to ASSERT when the faulting host PC was not a
++    // registered fastmem access - which turned ANY genuine segfault inside the
++    // JIT (or a fault routed from another JIT instance, see the
++    // FindCodeBlockInfo range-check fix) into
++    //     Abort message: 'Assertion Failed!: iter != fastmem_patch_info.end()'
++    // on Android. Return false instead so the signal handler forwards the
++    // fault to the previous handler / crash reporter.
+     const auto iter = fastmem_patch_info.find(PC);
+-    ASSERT(iter != fastmem_patch_info.end());
++    if (iter == fastmem_patch_info.end()) {
++        fmt::print(stderr, "dynarmic: FastmemCallback: no patch entry for PC {}\n", PC);
++        return false;
++    }
+     iter->second.callback();
+     fastmem_patch_info.erase(iter);
++    return true;
+ }
+ 
+ void A32EmitA64::EmitTerminalImpl(IR::Term::Interpret terminal, IR::LocationDescriptor initial_location) {
+diff --git a/src/backend/A64/a32_emit_a64.h b/src/backend/A64/a32_emit_a64.h
+index 320cb3d..8d78670 100644
+--- a/src/backend/A64/a32_emit_a64.h
++++ b/src/backend/A64/a32_emit_a64.h
+@@ -52,7 +52,8 @@ public:
+ 
+     void InvalidateCacheRanges(const boost::icl::interval_set<u32>& ranges);
+ 
+-    void FastmemCallback(CodePtr PC);
++    // CITRA-MMJ FIX: returns true if the fault was a registered fastmem access
++    bool FastmemCallback(CodePtr PC);
+ 
+ protected:
+     const A32::UserConfig config;
+diff --git a/src/backend/A64/exception_handler.h b/src/backend/A64/exception_handler.h
+index 04eb7d0..a26cf09 100644
+--- a/src/backend/A64/exception_handler.h
++++ b/src/backend/A64/exception_handler.h
+@@ -28,7 +28,7 @@ public:
+     ExceptionHandler();
+     ~ExceptionHandler();
+ 
+-    void Register(BlockOfCode& code, std::function<void(CodePtr)> segv_callback = nullptr);
++    void Register(BlockOfCode& code, std::function<bool(CodePtr)> segv_callback = nullptr);
+ 
+     bool SupportsFastmem() const;
+ private:
+diff --git a/src/backend/A64/exception_handler_posix.cpp b/src/backend/A64/exception_handler_posix.cpp
+index 57f2404..ca2269c 100644
+--- a/src/backend/A64/exception_handler_posix.cpp
++++ b/src/backend/A64/exception_handler_posix.cpp
+@@ -29,7 +29,11 @@ namespace {
+ 
+ struct CodeBlockInfo {
+     BlockOfCode* block;
+-    std::function<void(CodePtr)> callback;
++    // Returns true if the fault was handled (fastmem patch applied),
++    // false if the fault belongs to someone else (genuine segfault).
++    // CITRA-MMJ FIX: returning false lets SigAction forward the signal to
++    // the previous handler instead of asserting inside FastmemCallback.
++    std::function<bool(CodePtr)> callback;
+ };
+ 
+ class SigHandler {
+@@ -44,8 +48,14 @@ public:
+ 
+ private:
+     auto FindCodeBlockInfo(CodePtr PC) {
++        // CITRA-MMJ FIX: the upper bound check "PC < region + size" was missing,
++        // so ANY faulting address >= the first registered region start matched the
++        // first entry. With multiple JIT instances (one per page table), faults in
++        // instance B were routed to instance A, whose fastmem_patch_info does not
++        // contain the host PC -> ASSERT(iter != fastmem_patch_info.end()) -> abort
++        // with exactly that message on Android.
+         return std::find_if(code_block_infos.begin(), code_block_infos.end(),
+-                            [&](const CodeBlockInfo& x) { return x.block->GetRegion() <= PC && x.block->GetRegion() + x.block->GetRegionSize(); });
++                            [&](const CodeBlockInfo& x) { return x.block->GetRegion() <= PC && PC < x.block->GetRegion() + x.block->GetRegionSize(); });
+     }
+ 
+     std::vector<CodeBlockInfo> code_block_infos;
+@@ -93,8 +103,10 @@ void SigHandler::AddCodeBlock(CodeBlockInfo cb) {
+ void SigHandler::RemoveCodeBlock(CodePtr PC) {
+     std::lock_guard<std::mutex> guard(code_block_infos_mutex);
+     const auto iter = FindCodeBlockInfo(PC);
+-    ASSERT(iter != code_block_infos.end());
+-    code_block_infos.erase(iter);
++    // CITRA-MMJ FIX: tolerate already-removed blocks instead of asserting.
++    if (iter != code_block_infos.end()) {
++        code_block_infos.erase(iter);
++    }
+ }
+ 
+ void SigHandler::SigAction(int sig, siginfo_t* info, void* raw_context) {
+@@ -104,8 +116,17 @@ void SigHandler::SigAction(int sig, siginfo_t* info, void* raw_context) {
+     auto PC = reinterpret_cast<CodePtr>(((ucontext_t*)raw_context)->uc_mcontext.pc);
+     const auto iter = sig_handler.FindCodeBlockInfo(PC);
+     if (iter != sig_handler.code_block_infos.end()) {
+-        iter->callback(PC);
+-        return;
++        if (iter->callback(PC)) {
++            return; // fastmem fault handled: instruction patched to slow path
++        }
++        // CITRA-MMJ FIX: the fault is a genuine segfault inside JIT'd code
++        // (e.g. a wild pointer in a host callback called from the JIT).
++        // Do NOT swallow it into an assert; forward it to the previous
++        // handler so the real bug is reported.
++        fmt::print(
++            stderr,
++            "dynarmic: POSIX SigHandler: unhandled fault at PC {} (forwarding)\n",
++            PC);
+     }
+ 
+     fmt::print(
+@@ -132,7 +153,7 @@ void SigHandler::SigAction(int sig, siginfo_t* info, void* raw_context) {
+ } // anonymous namespace
+ 
+ struct ExceptionHandler::Impl final {
+-    Impl(BlockOfCode& code, std::function<void(CodePtr)> cb) {
++    Impl(BlockOfCode& code, std::function<bool(CodePtr)> cb) {
+         code_begin = code.GetRegion();
+         sig_handler.AddCodeBlock({&code, std::move(cb)});
+     }
+@@ -149,7 +170,7 @@ ExceptionHandler::ExceptionHandler() = default;
+ 
+ ExceptionHandler::~ExceptionHandler() = default;
+ 
+-void ExceptionHandler::Register(BlockOfCode& code, std::function<void(CodePtr)> cb) {
++void ExceptionHandler::Register(BlockOfCode& code, std::function<bool(CodePtr)> cb) {
+     if (cb)
+         impl = std::make_unique<Impl>(code, std::move(cb));
+ }
