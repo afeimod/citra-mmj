@@ -344,6 +344,15 @@ void Module::Interface::RemoveAmiibo() {
     nfc->SyncTagState();
 }
 
+bool Module::Interface::IsSearchingForAmiibos() const {
+    // CITRA-MMJ: the game is scanning for a tag right now (in-game Amiibo menu).
+    return nfc->nfc_tag_state == TagState::Scanning;
+}
+
+std::string Module::Interface::GetAmiiboFilename() const {
+    return nfc->amiibo_filename;
+}
+
 void Module::SyncTagState() {
     if (amiibo_in_range &&
         (nfc_tag_state == TagState::TagOutOfRange || nfc_tag_state == TagState::Scanning)) {

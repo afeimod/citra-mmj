@@ -133,7 +133,12 @@ u8* MemorySystem::GetPointerForRasterizerCache(VAddr addr) {
     if (addr >= VRAM_VADDR && addr < VRAM_VADDR_END) {
         return impl->vram.get() + (addr - VRAM_VADDR);
     }
-    UNREACHABLE();
+    // CITRA-MMJ FIX: UNREACHABLE() is compiled out in release builds, so a cached
+    // page outside these windows used to return a garbage pointer and crash the
+    // process (shadow-framebuffer pages can live in unusual places depending on
+    // the game). Return nullptr and let callers handle it safely.
+    LOG_ERROR(HW_Memory, "GetPointerForRasterizerCache: untracked address 0x{:08X}", addr);
+    return nullptr;
 }
 
 void MemorySystem::RegisterPageTable(PageTable* page_table) {
@@ -161,12 +166,23 @@ T MemorySystem::Read(const VAddr vaddr) {
         LOG_ERROR(HW_Memory, "unmapped Read{} @ 0x{:08X}", sizeof(T) * 8, vaddr);
         return 0;
     case PageType::Memory:
-        ASSERT_MSG(false, "Mapped memory page without a pointer @ {:08X}", vaddr);
+        // CITRA-MMJ FIX: ASSERT compiles away in release builds, which made this
+        // fall through and memcpy from a garbage pointer. Log and return 0 instead.
+        LOG_ERROR(HW_Memory, "Mapped memory page without a pointer @ {:08X}", vaddr);
         return 0;
     case PageType::RasterizerCachedMemory: {
         T value;
         RasterizerFlushVirtualRegion(vaddr, sizeof(T), FlushMode::Flush);
-        std::memcpy(&value, GetPointerForRasterizerCache(vaddr), sizeof(T));
+        // CITRA-MMJ FIX: GetPointerForRasterizerCache() can return nullptr for
+        // addresses outside the linear-heap/VRAM windows (release builds used to
+        // continue with an UNREACHABLE-turned-garbage pointer and segfault).
+        const u8* cached_pointer = GetPointerForRasterizerCache(vaddr);
+        if (!cached_pointer) {
+            LOG_ERROR(HW_Memory, "cached Read{} @ 0x{:08X} has no host pointer", sizeof(T) * 8,
+                      vaddr);
+            return 0;
+        }
+        std::memcpy(&value, cached_pointer, sizeof(T));
         return value;
     }
     default:
@@ -190,11 +206,18 @@ void MemorySystem::Write(const VAddr vaddr, const T data) {
                   vaddr);
         return;
     case PageType::Memory:
-        ASSERT_MSG(false, "Mapped memory page without a pointer @ {:08X}", vaddr);
+        // CITRA-MMJ FIX: see Read() - do not continue with a garbage pointer.
+        LOG_ERROR(HW_Memory, "Mapped memory page without a pointer @ {:08X}", vaddr);
         break;
     case PageType::RasterizerCachedMemory: {
         RasterizerFlushVirtualRegion(vaddr, sizeof(T), FlushMode::Invalidate);
-        std::memcpy(GetPointerForRasterizerCache(vaddr), &data, sizeof(T));
+        u8* cached_pointer = GetPointerForRasterizerCache(vaddr);
+        if (!cached_pointer) {
+            LOG_ERROR(HW_Memory, "cached Write{} @ 0x{:08X} has no host pointer", sizeof(T) * 8,
+                      vaddr);
+            break;
+        }
+        std::memcpy(cached_pointer, &data, sizeof(T));
         break;
     }
     default:
@@ -367,6 +390,11 @@ void RasterizerFlushVirtualRegion(VAddr start, u32 size, FlushMode mode) {
         u32 overlap_size = overlap_end - overlap_start;
 
         auto* rasterizer = VideoCore::Rasterizer();
+        // CITRA-MMJ FIX: the rasterizer can be gone during core teardown while
+        // cached pages are still touched; dereferencing it segfaulted.
+        if (!rasterizer) {
+            return;
+        }
         switch (mode) {
         case FlushMode::Flush:
             rasterizer->FlushRegion(physical_start, overlap_size);

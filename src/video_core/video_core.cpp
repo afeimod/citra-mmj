@@ -4,6 +4,8 @@
 
 #include <atomic>
 #include <functional>
+#include <mutex>
+#include <utility>
 #include <vector>
 #include <memory>
 #include "common/logging/log.h"
@@ -36,6 +38,36 @@ static std::vector<u32> g_background_pixels;
 std::atomic<bool> g_hw_shader_enabled;
 std::function<void(u32 width, u32 height, const std::vector<u32>& pixels)>
     g_screenshot_complete_callback;
+
+// ---- Screen casting (投屏) shared frame store ----
+std::atomic<bool> g_screen_cast_enabled{false};
+std::atomic<bool> g_screen_cast_swap{false};
+
+static std::mutex s_cast_mutex;
+static std::vector<u32> s_cast_pixels;
+static u32 s_cast_width = 0;
+static u32 s_cast_height = 0;
+static u64 s_cast_counter = 0;
+
+void SubmitScreenCastFrame(std::vector<u32>&& pixels, u32 width, u32 height) {
+    std::lock_guard<std::mutex> lock(s_cast_mutex);
+    s_cast_pixels = std::move(pixels);
+    s_cast_width = width;
+    s_cast_height = height;
+    ++s_cast_counter;
+}
+
+bool GetScreenCastFrame(std::vector<u32>& pixels, u32& width, u32& height, u64& last_counter) {
+    std::lock_guard<std::mutex> lock(s_cast_mutex);
+    if (s_cast_counter == 0 || s_cast_counter == last_counter) {
+        return false;
+    }
+    pixels = s_cast_pixels;
+    width = s_cast_width;
+    height = s_cast_height;
+    last_counter = s_cast_counter;
+    return true;
+}
 
 static void ApplySetting() {
     Frontend::EmuWindow& window = g_renderer->GetRenderWindow();

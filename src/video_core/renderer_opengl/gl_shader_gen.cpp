@@ -290,7 +290,16 @@ void PicaShaderConfigCommon::Init(const Pica::ShaderRegs& regs, Pica::Shader::Sh
     program_hash = setup.GetProgramCodeHash();
     swizzle_hash = setup.GetSwizzleDataHash();
     main_offset = regs.main_offset;
-    sanitize_mul = static_cast<u8>(Settings::values.shaders_accurate_mul);
+    // 兼容模式 (Use Compatible Mode, in-game toggle): force the fully accurate
+    // multiply sanitization for the vertex shader, regardless of the
+    // "shader accurate multiplication" radio. This matches the reference APK
+    // behaviour of a compatibility override that trades a bit of speed for
+    // correctness in games with shadow / geometry artifacts. sanitize_mul is
+    // part of the shader cache key, so flipping the toggle regenerates the
+    // affected shaders immediately.
+    sanitize_mul = Settings::values.use_compatible_mode
+                       ? static_cast<u8>(Settings::AccurateMul::SAFE)
+                       : static_cast<u8>(Settings::values.shaders_accurate_mul);
 
     num_outputs = 0;
     output_map.fill(16);

@@ -69,6 +69,14 @@ public:
 
         void RemoveAmiibo();
 
+        // CITRA-MMJ: accessors for the Android in-game Amiibo menu (APK parity).
+        // IsSearchingForAmiibos() mirrors TagState::Scanning, i.e. the game has
+        // called NFC::StartTagScanning and is waiting for a tag.
+        bool IsSearchingForAmiibos() const;
+
+        // Full path of the currently loaded amiibo file ("" when none loaded).
+        std::string GetAmiiboFilename() const;
+
     protected:
         /**
          * NFC::Initialize service function

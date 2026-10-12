@@ -37,6 +37,8 @@ const ConfigInfo<Settings::LayoutOption> LANDSCAPE_LAYOUT_OPTION{
     {"Renderer", "landscape_layout_option"}, Settings::LayoutOption::Default};
 const ConfigInfo<Settings::PresentationMode> SCREEN_PRESENTATION_MODE{
         {"Renderer", "screen_presentation_mode"}, Settings::PresentationMode::Default};
+// 投屏: true = cast the bottom (touch) screen to the external display instead of the top screen
+const ConfigInfo<bool> SCREEN_CAST_SWAP{{"Renderer", "screen_cast_swap"}, false};
 const ConfigInfo<std::string> POST_PROCESSING_SHADER{{"Renderer", "pp_shader_name"}, ""};
 const ConfigInfo<std::string> REMOTE_SHADER_HOST{
     {"Renderer", "remote_shader_host"},

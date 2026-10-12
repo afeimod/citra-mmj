@@ -12,6 +12,7 @@
 
 #include <android/log.h>
 #include <android/native_window_jni.h>
+#include <glad/glad.h>
 
 #include "common/common_paths.h"
 #include "common/file_util.h"
@@ -471,6 +472,11 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_Run(JNIEnv* env, jclass 
     Settings::values.custom_textures = Config::Get(Config::CUSTOM_TEXTURES);
     Settings::values.pp_shader_name = Config::Get(Config::POST_PROCESSING_SHADER);
     Settings::values.remote_shader_host = Config::Get(Config::REMOTE_SHADER_HOST);
+    // 投屏 (screen casting): enable the renderer's cast frame production when a
+    // presentation mode is configured (0 = off).
+    VideoCore::g_screen_cast_enabled =
+        static_cast<int>(Config::Get(Config::SCREEN_PRESENTATION_MODE)) > 0;
+    VideoCore::g_screen_cast_swap = Config::Get(Config::SCREEN_CAST_SWAP);
     // audio
     Settings::values.enable_dsp_lle = Config::Get(Config::ENABLE_DSP_LLE);
     Settings::values.dsp_lle_multithread = Config::Get(Config::DSP_LLE_MULTITHREAD);
@@ -568,7 +574,10 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_StopEmulation(JNIEnv* en
 JNIEXPORT jintArray JNICALL Java_org_citra_emu_NativeLibrary_getRunningSettings(JNIEnv* env,
                                                                                 jclass obj) {
     int i = 0;
-    int settings[13];
+    // CITRA-MMJ: extended to 15 entries (APK parity): + use_compatible_mode,
+    // + screen_presentation_mode (投屏). Keep in sync with setRunningSettings
+    // and RunningSettingDialog.loadSettingsMenu().
+    int settings[15];
 
     // get settings
     settings[i++] = Settings::values.core_ticks_hack > 0;
@@ -579,11 +588,13 @@ JNIEXPORT jintArray JNICALL Java_org_citra_emu_NativeLibrary_getRunningSettings(
     settings[i++] = Settings::values.use_hw_gs;
     settings[i++] = Settings::values.shadow_rendering;
     settings[i++] = Settings::values.async_shader_compile;
+    settings[i++] = Settings::values.use_compatible_mode;
     settings[i++] = std::min(std::max(Settings::values.resolution_factor - 1, 0), 3);
     settings[i++] = static_cast<int>(Settings::values.layout_option);
     settings[i++] = static_cast<int>(Settings::values.shaders_accurate_mul);
     settings[i++] = Settings::values.custom_layout;
     settings[i++] = Settings::values.frame_limit;
+    settings[i++] = static_cast<int>(Config::Get(Config::SCREEN_PRESENTATION_MODE));
 
     jintArray array = env->NewIntArray(i);
     env->SetIntArrayRegion(array, 0, i, settings);
@@ -629,6 +640,10 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setRunningSettings(JNIEn
     Settings::values.async_shader_compile = settings[i++] > 0;
     Config::Set(Config::ASYNC_SHADER_COMPILE, Settings::values.async_shader_compile);
 
+    // Use Compatible Mode (CITRA-MMJ: APK in-game settings parity)
+    Settings::values.use_compatible_mode = settings[i++] > 0;
+    Config::Set(Config::USE_COMPATIBLE_MODE, Settings::values.use_compatible_mode);
+
     // Scale Factor
     Settings::values.resolution_factor = settings[i++] + 1;
     Config::Set(Config::RESOLUTION_FACTOR, Settings::values.resolution_factor);
@@ -651,6 +666,12 @@ JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setRunningSettings(JNIEn
 
     // Frame Limit
     Settings::values.frame_limit = std::max(settings[i++], 1);
+
+    // Screen Casting (投屏): 0 = off, 1 = keep aspect, 2 = fullscreen stretch
+    const auto presentation_mode = static_cast<Settings::PresentationMode>(settings[i++]);
+    Config::Set(Config::SCREEN_PRESENTATION_MODE, presentation_mode);
+    // Live-update the renderer's cast frame production (no restart needed)
+    VideoCore::g_screen_cast_enabled = presentation_mode != Settings::PresentationMode::Default;
 
     VideoCore::SettingUpdate();
 
@@ -995,6 +1016,207 @@ JNIEXPORT void JNICALL Java_org_citra_emu_utils_NetPlayManager_NetPlayLeaveRoom(
 JNIEXPORT jstring JNICALL
 Java_org_citra_emu_utils_NetPlayManager_NetPlayGetConsoleId(JNIEnv* env, jclass clazz) {
     return JniHelper::Wrap(NetPlayGetConsoleId());
+}
+
+// ---- Amiibo (APK parity: in-game Amiibo menu) ----
+
+static Service::NFC::Module::Interface* GetNfcInterface() {
+    Core::System& system{Core::System::GetInstance()};
+    Service::SM::ServiceManager& sm = system.ServiceManager();
+    return sm.GetService<Service::NFC::Module::Interface>("nfc:u").get();
+}
+
+JNIEXPORT jboolean JNICALL Java_org_citra_emu_NativeLibrary_LoadAmiibo(JNIEnv* env, jclass obj,
+                                                                       jstring jPath) {
+    auto* nfc = GetNfcInterface();
+    if (!nfc) {
+        return JNI_FALSE;
+    }
+    return nfc->LoadAmiibo(JniHelper::Unwrap(jPath)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_RemoveAmiibo(JNIEnv* env, jclass obj) {
+    if (auto* nfc = GetNfcInterface()) {
+        nfc->RemoveAmiibo();
+    }
+}
+
+JNIEXPORT jstring JNICALL Java_org_citra_emu_NativeLibrary_GetAmiiboName(JNIEnv* env, jclass obj) {
+    if (auto* nfc = GetNfcInterface()) {
+        const std::string fullpath = nfc->GetAmiiboFilename();
+        const auto pos = fullpath.find_last_of('/');
+        const std::string name =
+            (pos == std::string::npos) ? fullpath : fullpath.substr(pos + 1);
+        return JniHelper::Wrap(name);
+    }
+    return JniHelper::Wrap(std::string());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_org_citra_emu_NativeLibrary_IsSearchingForAmiibos(JNIEnv* env, jclass obj) {
+    if (auto* nfc = GetNfcInterface()) {
+        return nfc->IsSearchingForAmiibos() ? JNI_TRUE : JNI_FALSE;
+    }
+    return JNI_FALSE;
+}
+
+// ---- Screen casting (投屏) ----
+// The external-display Presentation runs its own GLSurfaceView; its render
+// thread calls getScreenTexture() each frame. Pixels are produced by
+// RendererOpenGL::RenderScreenCastingFrame() through the VideoCore frame
+// store, so no GL objects are shared across contexts.
+
+static GLuint s_cast_texture = 0;
+static u32 s_cast_tex_width = 0;
+static u32 s_cast_tex_height = 0;
+static u64 s_cast_uploaded_counter = 0;
+
+JNIEXPORT jintArray JNICALL Java_org_citra_emu_NativeLibrary_getScreenTexture(JNIEnv* env,
+                                                                              jclass obj) {
+    jint ret[4] = {0, 0, 0, 0}; // {textureId, width, height, bgr}
+
+    std::vector<u32> pixels;
+    u32 width = 0;
+    u32 height = 0;
+    const bool has_new_frame =
+        VideoCore::GetScreenCastFrame(pixels, width, height, s_cast_uploaded_counter);
+
+    // If the texture belongs to a destroyed GL context it is no longer valid
+    // here; recreate it lazily in the current (cast) context.
+    if (s_cast_texture != 0 && !glIsTexture(s_cast_texture)) {
+        s_cast_texture = 0;
+    }
+
+    if (s_cast_texture == 0 && width > 0 && height > 0) {
+        glGenTextures(1, &s_cast_texture);
+        glBindTexture(GL_TEXTURE_2D, s_cast_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        s_cast_tex_width = width;
+        s_cast_tex_height = height;
+    }
+
+    if (has_new_frame && s_cast_texture != 0 && width > 0 && height > 0) {
+        if (width != s_cast_tex_width || height != s_cast_tex_height) {
+            glBindTexture(GL_TEXTURE_2D, s_cast_texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                         pixels.data());
+            s_cast_tex_width = width;
+            s_cast_tex_height = height;
+        } else {
+            glBindTexture(GL_TEXTURE_2D, s_cast_texture);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE,
+                            pixels.data());
+        }
+    }
+
+    if (s_cast_texture != 0) {
+        ret[0] = static_cast<jint>(s_cast_texture);
+        ret[1] = static_cast<jint>(s_cast_tex_width);
+        ret[2] = static_cast<jint>(s_cast_tex_height);
+        ret[3] = 0; // pixels are uploaded as GL_RGBA; the rgb shader is correct
+    }
+
+    jintArray array = env->NewIntArray(4);
+    env->SetIntArrayRegion(array, 0, 4, ret);
+    return array;
+}
+
+JNIEXPORT void JNICALL
+Java_org_citra_emu_NativeLibrary_releaseScreenTexture(JNIEnv* env, jclass obj) {
+    if (s_cast_texture != 0 && glIsTexture(s_cast_texture)) {
+        glDeleteTextures(1, &s_cast_texture);
+    }
+    s_cast_texture = 0;
+    s_cast_tex_width = 0;
+    s_cast_tex_height = 0;
+    s_cast_uploaded_counter = 0;
+}
+
+JNIEXPORT void JNICALL
+Java_org_citra_emu_NativeLibrary_UpdateExternalDisplay(JNIEnv* env, jclass obj, jint width,
+                                                       jint height) {
+    // Kept for API parity with the reference APK; the cast frame is produced at
+    // native screen resolution and the Presentation scales it.
+}
+
+JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_InitSwapScreen(JNIEnv* env, jclass obj,
+                                                                       jboolean swap) {
+    VideoCore::g_screen_cast_swap = swap != JNI_FALSE;
+    Config::Set(Config::SCREEN_CAST_SWAP, swap != JNI_FALSE);
+}
+
+JNIEXPORT jboolean JNICALL Java_org_citra_emu_NativeLibrary_GetSwapScreen(JNIEnv* env,
+                                                                          jclass obj) {
+    return VideoCore::g_screen_cast_swap.load() ? JNI_TRUE : JNI_FALSE;
+}
+
+// ---- Generic config accessors (used by the cast Presentation & UI) ----
+
+JNIEXPORT jboolean JNICALL Java_org_citra_emu_NativeLibrary_getConfigBoolean(JNIEnv* env,
+                                                                             jclass obj,
+                                                                             jstring jKey) {
+    const std::string key = JniHelper::Unwrap(jKey);
+    if (key == "screen_cast_swap") {
+        return Config::Get(Config::SCREEN_CAST_SWAP) ? JNI_TRUE : JNI_FALSE;
+    }
+    if (key == "use_dsp_lle") {
+        return Config::Get(Config::ENABLE_DSP_LLE) ? JNI_TRUE : JNI_FALSE;
+    }
+    return JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_org_citra_emu_NativeLibrary_getConfigInteger(JNIEnv* env, jclass obj,
+                                                                         jstring jKey) {
+    const std::string key = JniHelper::Unwrap(jKey);
+    if (key == "screen_presentation_mode") {
+        return static_cast<jint>(Config::Get(Config::SCREEN_PRESENTATION_MODE));
+    }
+    return 0;
+}
+
+JNIEXPORT jstring JNICALL Java_org_citra_emu_NativeLibrary_getConfigString(JNIEnv* env, jclass obj,
+                                                                           jstring jKey) {
+    const std::string key = JniHelper::Unwrap(jKey);
+    if (key == "pp_shader_name") {
+        return JniHelper::Wrap(Config::Get(Config::POST_PROCESSING_SHADER));
+    }
+    return JniHelper::Wrap(std::string());
+}
+
+JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setConfigBoolean(JNIEnv* env, jclass obj,
+                                                                         jstring jKey,
+                                                                         jboolean value) {
+    const std::string key = JniHelper::Unwrap(jKey);
+    if (key == "screen_cast_swap") {
+        Config::Set(Config::SCREEN_CAST_SWAP, value != JNI_FALSE);
+        VideoCore::g_screen_cast_swap = value != JNI_FALSE;
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setConfigInteger(JNIEnv* env, jclass obj,
+                                                                         jstring jKey,
+                                                                         jint value) {
+    const std::string key = JniHelper::Unwrap(jKey);
+    if (key == "screen_presentation_mode") {
+        Config::Set(Config::SCREEN_PRESENTATION_MODE,
+                    static_cast<Settings::PresentationMode>(value));
+        // Live-update the renderer's cast frame production (no restart needed)
+        VideoCore::g_screen_cast_enabled = value > 0;
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_citra_emu_NativeLibrary_setConfigString(JNIEnv* env, jclass obj,
+                                                                        jstring jKey,
+                                                                        jstring jValue) {
+    const std::string key = JniHelper::Unwrap(jKey);
+    if (key == "pp_shader_name") {
+        Config::Set(Config::POST_PROCESSING_SHADER, JniHelper::Unwrap(jValue));
+    }
 }
 
 #ifdef __cplusplus

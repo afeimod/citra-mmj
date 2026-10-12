@@ -131,6 +131,7 @@ public class RunningSettingDialog extends DialogFragment {
         public static final int SETTING_ACCURATE_MUL = 11;
         public static final int SETTING_CUSTOM_LAYOUT = 12;
         public static final int SETTING_FRAME_LIMIT = 13;
+        public static final int SETTING_SCREEN_CAST = 14;
 
         // pref
         public static final int SETTING_JOYSTICK_RELATIVE = 100;
@@ -148,6 +149,7 @@ public class RunningSettingDialog extends DialogFragment {
         public static final int SETTING_MEMORY_VIEWER = 206;
         public static final int SETTING_EDIT_SCREEN = 207;
         public static final int SETTING_EXIT_GAME = 208;
+        public static final int SETTING_SHOW_AMIIBO = 209;
 
         public static final int SETTING_MULTIPLAYER_ROOM_TEXT = 400;
         public static final int SETTING_MULTIPLAYER_CREATE_ROOM = 401;
@@ -266,6 +268,11 @@ public class RunningSettingDialog extends DialogFragment {
                 break;
             case SettingsItem.SETTING_MEMORY_VIEWER:
                 activity.launchMemoryViewer();
+                dismiss();
+                break;
+            case SettingsItem.SETTING_SHOW_AMIIBO:
+                // CITRA-MMJ: 对齐参考 APK —— 游戏内菜单打开 Amiibo 选择器
+                activity.showAmiiboDialog();
                 dismiss();
                 break;
             case SettingsItem.SETTING_EDIT_SCREEN:
@@ -457,6 +464,19 @@ public class RunningSettingDialog extends DialogFragment {
 
                 RadioButton radio3 = mRadioGroup.findViewById(R.id.radio3);
                 radio3.setVisibility(View.GONE);
+            } else if (item.getSetting() == SettingsItem.SETTING_SCREEN_CAST) {
+                // CITRA-MMJ: 对齐参考 APK 的投屏选项
+                RadioButton radio0 = mRadioGroup.findViewById(R.id.radio0);
+                radio0.setText(R.string.off);
+
+                RadioButton radio1 = mRadioGroup.findViewById(R.id.radio1);
+                radio1.setText(R.string.enable);
+
+                RadioButton radio2 = mRadioGroup.findViewById(R.id.radio2);
+                radio2.setText(R.string.enable_fullscreen);
+
+                RadioButton radio3 = mRadioGroup.findViewById(R.id.radio3);
+                radio3.setVisibility(View.GONE);
             }
         }
 
@@ -562,6 +582,8 @@ public class RunningSettingDialog extends DialogFragment {
             mSettings.add(new SettingsItem(SettingsItem.SETTING_MEMORY_VIEWER, R.string.emulation_memory_search, SettingsItem.TYPE_TEXT, 0));
             mSettings.add(new SettingsItem(SettingsItem.SETTING_LOAD_SUBMENU, R.string.multiplayer, SettingsItem.TYPE_TEXT, MENU_MULTIPLAYER));
             mSettings.add(new SettingsItem(SettingsItem.SETTING_EDIT_SCREEN, R.string.emulation_screen_layout, SettingsItem.TYPE_TEXT, 0));
+            // CITRA-MMJ: 对齐参考 APK —— 主菜单增加 Amiibo 入口
+            mSettings.add(new SettingsItem(SettingsItem.SETTING_SHOW_AMIIBO, R.string.text_amiibo, SettingsItem.TYPE_TEXT, 0));
             mSettings.add(new SettingsItem(SettingsItem.SETTING_EXIT_GAME, R.string.emulation_stop_running, SettingsItem.TYPE_TEXT, 0));
             notifyDataSetChanged();
         }
@@ -648,7 +670,10 @@ public class RunningSettingDialog extends DialogFragment {
             mSettings.add(new SettingsItem(SettingsItem.SETTING_ASYNC_SHADER_COMPILE,
                     R.string.setting_async_shader_compile,
                     SettingsItem.TYPE_CHECKBOX, mRunningSettings[i++]));
-            // 注意：native 端 getRunningSettings/setRunningSettings 各 13 项（无兼容模式），
+            mSettings.add(new SettingsItem(SettingsItem.SETTING_USE_COMPATIBLE_MODE,
+                    R.string.setting_use_compatible_mode,
+                    SettingsItem.TYPE_CHECKBOX, mRunningSettings[i++]));
+            // 注意：native 端 getRunningSettings/setRunningSettings 各 15 项（已补兼容模式与投屏），
             // 这里必须与之一一对应，否则设置数组错位（分辨率/布局等全部串位）
             mSettings.add(new SettingsItem(SettingsItem.SETTING_SCALE_FACTOR,
                     R.string.running_resolution, SettingsItem.TYPE_RADIO_GROUP,
@@ -665,6 +690,10 @@ public class RunningSettingDialog extends DialogFragment {
             mSettings.add(new SettingsItem(SettingsItem.SETTING_FRAME_LIMIT,
                     R.string.running_frame_limit,
                     SettingsItem.TYPE_SEEK_BAR, mRunningSettings[i++]));
+            // 投屏（对齐参考 APK）：0 关闭 / 1 开启保持比例 / 2 全屏拉伸
+            mSettings.add(new SettingsItem(SettingsItem.SETTING_SCREEN_CAST,
+                    R.string.running_screen_cast,
+                    SettingsItem.TYPE_RADIO_GROUP, mRunningSettings[i++]));
             notifyDataSetChanged();
         }
 
@@ -769,6 +798,8 @@ public class RunningSettingDialog extends DialogFragment {
             }
             if (isChanged) {
                 NativeLibrary.setRunningSettings(newSettings);
+                // CITRA-MMJ: 投屏模式可能已变化，立即重新评估外部显示输出
+                activity.updateScreenCasting();
             }
             mRunningSettings = null;
         }

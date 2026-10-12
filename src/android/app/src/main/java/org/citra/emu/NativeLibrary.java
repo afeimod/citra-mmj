@@ -350,6 +350,24 @@ public final class NativeLibrary {
      */
     public static native void SetUserPath(String path);
     public static native void loadAmiibo(String path);
+    // ---- Amiibo（对齐参考 APK：游戏内菜单加载/移除/状态查询）----
+    public static native boolean LoadAmiibo(String path);
+    public static native void RemoveAmiibo();
+    public static native String GetAmiiboName();
+    public static native boolean IsSearchingForAmiibos();
+    // ---- 投屏（外部显示输出，对齐参考 APK）----
+    public static native int[] getScreenTexture();
+    public static native void releaseScreenTexture();
+    public static native void UpdateExternalDisplay(int width, int height);
+    public static native void InitSwapScreen(boolean swap);
+    public static native boolean GetSwapScreen();
+    // ---- 通用配置访问（投屏 Presentation 与 UI 使用）----
+    public static native boolean getConfigBoolean(String key);
+    public static native int getConfigInteger(String key);
+    public static native String getConfigString(String key);
+    public static native void setConfigBoolean(String key, boolean value);
+    public static native void setConfigInteger(String key, int value);
+    public static native void setConfigString(String key, String value);
     public static native void InstallCIA(String[] path);
     public static native void HandleImage(int[] pixels, int width, int height);
     public static native void Screenshot(OnScreenshotCompleteListener listener);

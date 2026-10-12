@@ -86,8 +86,11 @@ public final class AmiiboDialog extends DialogFragment {
 
         public void bind(String path) {
             String filename = path.substring(path.lastIndexOf(File.separatorChar) + 1, path.length() - 4);
-            mTextTitle.setText(filename);
             mPath = path;
+            // CITRA-MMJ: 对齐参考 APK —— 当前已加载的 Amiibo 高亮显示
+            String loadedName = NativeLibrary.GetAmiiboName();
+            boolean isLoaded = loadedName != null && !loadedName.isEmpty() && path.endsWith(loadedName);
+            mTextTitle.setText(isLoaded ? "* " + filename + " *" : filename);
         }
     }
 
@@ -130,8 +133,18 @@ public final class AmiiboDialog extends DialogFragment {
             if (index > 0) {
                 name = path.substring(index + 1);
             }
-            NativeLibrary.loadAmiibo(path);
-            Toast.makeText(v.getContext(), name, Toast.LENGTH_SHORT).show();
+            // CITRA-MMJ: 对齐参考 APK —— 点击已加载的 Amiibo 再次点击即移除
+            String loadedName = NativeLibrary.GetAmiiboName();
+            if (loadedName != null && !loadedName.isEmpty() && name.equals(loadedName)) {
+                NativeLibrary.RemoveAmiibo();
+                Toast.makeText(v.getContext(), name + " (" +
+                    v.getContext().getString(R.string.text_remove_amiibo) + ")",
+                    Toast.LENGTH_SHORT).show();
+                return;
+            }
+            boolean success = NativeLibrary.LoadAmiibo(path);
+            Toast.makeText(v.getContext(), success ? name : name + " (failed)",
+                Toast.LENGTH_SHORT).show();
         }
 
         @Override

@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<android.opengl.GLSurfaceView  xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/surface_view"
+<!-- 投屏：外部显示（电视/显示器）上的游戏画面，全屏无系统栏 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" />
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <android.opengl.GLSurfaceView
+        android:id="@+id/surface_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</FrameLayout>

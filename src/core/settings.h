@@ -33,8 +33,9 @@ enum class MicInputType {
 };
 
 enum class PresentationMode {
-    Default,
-    SingleScreen,
+    Default = 0,      // No external display presentation (投屏 off)
+    SingleScreen = 1, // Present a single screen on the external display, keep aspect
+    Stretch = 2,      // Present on the external display, stretch to fullscreen
 };
 
 enum class AccurateMul {

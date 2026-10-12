@@ -203,6 +203,7 @@
     <string name="default_value">Por defecto</string>
     <string name="auto">Automático</string>
     <string name="enable">Habilitar</string>
+    <string name="enable_fullscreen">Fullscreen</string>
     <string name="off">Desactivado</string>
     <string name="nearest">Nearest</string>
     <string name="linear">Linear</string>

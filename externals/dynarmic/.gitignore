@@ -1,0 +1,4 @@
+# Built files
+build/
+docs/Doxygen/
+.vs/

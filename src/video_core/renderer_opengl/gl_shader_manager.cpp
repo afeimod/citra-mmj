@@ -296,7 +296,13 @@ public:
     // of neutral stubs, explicit image unit bindings, corrected shadowTexture
     // texel-lattice formula). Program binaries cached by earlier builds of
     // this fork contain the broken stub shaders, so force a clean reload.
-    static constexpr u32 PROGRAM_CACHE_VERSION = 0xC;
+    //
+    // Bumped 0xC -> 0xD: added the in-game "兼容模式" (Use Compatible Mode)
+    // override of the vertex-shader multiply sanitization and extended the
+    // running-settings array to 15 entries (compatible mode + screen cast).
+    // Force a clean program-cache reload so stale entries can never mask the
+    // new shader variants.
+    static constexpr u32 PROGRAM_CACHE_VERSION = 0xD;
 
     static std::string GetCacheFile() {
         u64 program_id = 0;

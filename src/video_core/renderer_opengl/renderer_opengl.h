@@ -64,6 +64,9 @@ private:
     void ConfigureFramebufferTexture(TextureInfo& texture,
                                      const GPU::Regs::FramebufferConfig& framebuffer);
     void RenderScreenshot();
+    // 投屏：renders the casted screen into an offscreen FBO and publishes the
+    // pixels for the Android external-display Presentation (VideoCore frame store).
+    void RenderScreenCastingFrame();
     void DrawScreens(const Layout::FramebufferLayout& layout);
     void RenderToMailbox(const Layout::FramebufferLayout& layout);
 
@@ -92,6 +95,12 @@ private:
     // Shader uniform location indices
     GLuint uniform_modelview_matrix;
     GLuint uniform_resolution;
+
+    // 投屏 offscreen render targets (created lazily on the render thread)
+    OGLFramebuffer cast_framebuffer;
+    GLuint cast_renderbuffer = 0;
+    u32 cast_rb_width = 0;
+    u32 cast_rb_height = 0;
 };
 
 } // namespace OpenGL

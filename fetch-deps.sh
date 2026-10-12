@@ -9,6 +9,9 @@ D=--depth; ARG=1
 export GIT_CONFIG_NOSYSTEM=1   # 本机 git 的系统配置路径不可访问，必须跳过
 
 fetch(){ # path  url
+  # CITRA-MMJ FIX: 目录已存在且带 .citra-mmj-fixed 标记 => 是修复过的副本（如 dynarmic），
+  # 不能 rm -rf 重新拉取，否则修复会被上游未修复代码覆盖。
+  [ -f "$1/.citra-mmj-fixed" ] && { echo "  跳过（已修复副本）$1"; return; }
   [ -d "$1/.git" ] && { echo "  跳过（已有）$1"; return; }
   echo "→ $1"
   rm -rf "$1"; mkdir -p "$(dirname "$1")"

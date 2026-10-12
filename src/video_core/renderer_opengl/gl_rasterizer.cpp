@@ -516,6 +516,21 @@ void RasterizerOpenGL::CheckForConfigChanges() {
                             "Shadow rendering runtime toggle -> AllowShadow=%d", AllowShadow ? 1 : 0);
 #endif
     }
+
+    // 兼容模式 (Use Compatible Mode) also toggles at runtime: it overrides the
+    // vertex-shader multiply sanitization (see PicaShaderConfigCommon::Init),
+    // and sanitize_mul is part of the shader cache key, so force re-selection
+    // for the same immediacy as the shadow toggle.
+    static bool s_old_compatible_mode = false;
+    const bool compatible_mode = Settings::values.use_compatible_mode;
+    if (compatible_mode != s_old_compatible_mode) {
+        s_old_compatible_mode = compatible_mode;
+        shader_dirty = true;
+#ifdef ANDROID
+        __android_log_print(ANDROID_LOG_INFO, "citra",
+                            "Compatible mode toggle -> %d", compatible_mode ? 1 : 0);
+#endif
+    }
 }
 
 void RasterizerOpenGL::OnFrameUpdate() {

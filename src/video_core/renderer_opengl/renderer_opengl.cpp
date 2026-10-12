@@ -396,6 +396,7 @@ void RendererOpenGL::SwapBuffers() {
     }
 
     RenderScreenshot();
+    RenderScreenCastingFrame();
 
     if (Settings::values.use_present_thread) {
         RenderToMailbox(layout);
@@ -435,6 +436,56 @@ void RendererOpenGL::RenderScreenshot() {
         VideoCore::g_screenshot_complete_callback(layout.width, layout.height, pixels);
         VideoCore::g_screenshot_complete_callback = nullptr;
     }
+}
+
+/*
+ * 投屏 (Screen casting to an external display)
+ *
+ * Renders only the casted screen (top by default, bottom when swapped) into a
+ * small offscreen framebuffer at native screen resolution and publishes the
+ * pixels through the VideoCore frame store. The Android Presentation on the
+ * external display picks the frame up from its own GL thread (see
+ * ScreenCastRenderer.java) and upscales it there, which keeps the per-frame
+ * readback at ~384 KB instead of stalling on a full TV-sized readback.
+ *
+ * Runs on the render thread right after RenderScreenshot(); same FBO pattern:
+ * bind FBO -> DrawScreens -> glReadPixels -> publish.
+ */
+void RendererOpenGL::RenderScreenCastingFrame() {
+    if (!VideoCore::g_screen_cast_enabled) {
+        return;
+    }
+
+    const bool swapped = VideoCore::g_screen_cast_swap.load();
+    constexpr u32 cast_height = 240;
+    const u32 cast_width = swapped ? 320 : 400;
+    const auto cast_layout = Layout::SingleFrameLayout(cast_width, cast_height, swapped);
+
+    if (cast_renderbuffer == 0) {
+        glGenRenderbuffers(1, &cast_renderbuffer);
+    }
+    if (cast_rb_width != cast_width || cast_rb_height != cast_height) {
+        glBindRenderbuffer(GL_RENDERBUFFER, cast_renderbuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, cast_width, cast_height);
+        cast_rb_width = cast_width;
+        cast_rb_height = cast_height;
+    }
+    if (cast_framebuffer.handle == 0) {
+        cast_framebuffer.Create();
+    }
+    OpenGLState::BindReadFramebuffer(cast_framebuffer.handle);
+    OpenGLState::BindDrawFramebuffer(cast_framebuffer.handle);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
+                              cast_renderbuffer);
+
+    DrawScreens(cast_layout);
+
+    std::vector<u32> pixels(cast_width * cast_height);
+    glReadPixels(0, 0, static_cast<GLsizei>(cast_width), static_cast<GLsizei>(cast_height),
+                 GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    // The pixels keep GL bottom-up order; the cast renderer's texture sampling
+    // accounts for that, so no FlipPixels() here (unlike RenderScreenshot).
+    VideoCore::SubmitScreenCastFrame(std::move(pixels), cast_width, cast_height);
 }
 
 /// run in core thread
@@ -540,7 +591,7 @@ out vec2 frag_tex_coord;
 void main() {
     vec2 rawpos = vec2(gl_VertexID & 1, (gl_VertexID & 2) >> 1);
     frag_tex_coord = vec2(rawpos.x, rawpos.y);
-    mat2 rotate = mat2(0, -1, 1, 0); // rotate -90�
+    mat2 rotate = mat2(0, -1, 1, 0); // rotate -90°
     gl_Position = vec4((rawpos * 2.0 - 1.0) * rotate, 0.0, 1.0);
 }
 )";

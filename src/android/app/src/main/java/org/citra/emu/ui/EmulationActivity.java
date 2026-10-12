@@ -10,6 +10,8 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.graphics.Point;
+import android.hardware.display.DisplayManager;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -20,6 +22,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
+import android.view.Display;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -39,12 +42,18 @@ import org.citra.emu.settings.model.SettingSection;
 import org.citra.emu.utils.ControllerMappingHelper;
 import org.citra.emu.utils.CitraDirectory;
 
-public final class EmulationActivity extends AppCompatActivity {
+public final class EmulationActivity extends AppCompatActivity
+        implements DisplayManager.DisplayListener {
     public static final String EXTRA_GAME_ID = "GameId";
     public static final String EXTRA_GAME_NAME = "GameName";
     public static final String EXTRA_GAME_PATH = "GamePath";
     public static final int REQUEST_PICK_IMAGE = 1;
     public static final int REQUEST_CHEAT_CODE = 2;
+
+    // ---- 投屏（外部显示输出，对齐参考 APK）----
+    private DisplayManager mDisplayManager;
+    private ScreenPresentation mScreenPresentation;
+    private int mMainDisplayId = Display.DEFAULT_DISPLAY;
 
     private static WeakReference<EmulationActivity> sInstance = new WeakReference<>(null);
 
@@ -132,7 +141,102 @@ public final class EmulationActivity extends AppCompatActivity {
         }
 
         setTitle(mGameName);
+
+        // 投屏：监听外部显示设备的接入/移除（Chromecast、HDMI、无线投屏等）
+        mDisplayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
+        if (mDisplayManager != null) {
+            mMainDisplayId = getMainDisplayId();
+            mDisplayManager.registerDisplayListener(this, null);
+        }
+
         new InitTask().execute(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mDisplayManager != null) {
+            mDisplayManager.unregisterDisplayListener(this);
+        }
+        dismissScreenPresentation();
+    }
+
+    private int getMainDisplayId() {
+        Display display = getWindowManager().getDefaultDisplay();
+        return display != null ? display.getDisplayId() : Display.DEFAULT_DISPLAY;
+    }
+
+    /**
+     * 投屏状态重新评估（对齐参考 APK 的 t0()）：
+     * screen_presentation_mode == 0 时关闭投屏；
+     * > 0 且存在外部显示设备时在其上建立 Presentation。
+     * 由 DisplayListener 和游戏内设置对话框（保存设置后）调用。
+     */
+    public void updateScreenCasting() {
+        int mode = NativeLibrary.getConfigInteger("screen_presentation_mode");
+        if (mode <= 0) {
+            dismissScreenPresentation();
+            return;
+        }
+        if (mScreenPresentation != null) {
+            mScreenPresentation.setPresentationMode(mode);
+            return;
+        }
+        if (mDisplayManager == null) {
+            return;
+        }
+        for (Display display : mDisplayManager.getDisplays()) {
+            // 选择非主屏且处于有效状态（PRESENTATION flag = 8）的显示设备
+            if (display.isValid() && display.getDisplayId() != mMainDisplayId &&
+                display.getState() != Display.STATE_OFF &&
+                (display.getFlags() & Display.FLAG_PRESENTATION) != 0) {
+                showScreenPresentation(display, mode);
+                return;
+            }
+        }
+    }
+
+    private void showScreenPresentation(Display display, int mode) {
+        Point size = new Point();
+        display.getRealSize(size);
+        NativeLibrary.UpdateExternalDisplay(size.x, size.y);
+        mScreenPresentation = new ScreenPresentation(this, display);
+        mScreenPresentation.setPresentationMode(mode);
+        try {
+            mScreenPresentation.show();
+        } catch (Exception e) {
+            mScreenPresentation = null;
+        }
+    }
+
+    private void dismissScreenPresentation() {
+        if (mScreenPresentation != null) {
+            try {
+                mScreenPresentation.dismiss();
+            } catch (Exception ignored) {
+            }
+            mScreenPresentation = null;
+        }
+    }
+
+    /** ScreenPresentation.dismiss() 完成后回调 */
+    public void onScreenPresentationDismissed() {
+        mScreenPresentation = null;
+    }
+
+    @Override
+    public void onDisplayAdded(int displayId) {
+        updateScreenCasting();
+    }
+
+    @Override
+    public void onDisplayRemoved(int displayId) {
+        updateScreenCasting();
+    }
+
+    @Override
+    public void onDisplayChanged(int displayId) {
+        updateScreenCasting();
     }
 
     @Override
@@ -363,6 +467,17 @@ public final class EmulationActivity extends AppCompatActivity {
         } else if (mAmiiboDialog != null) {
             mAmiiboDialog.dismiss();
             mAmiiboDialog = null;
+        }
+    }
+
+    /**
+     * CITRA-MMJ: 对齐参考 APK —— 游戏内设置菜单的 Amiibo 入口
+     * 手动打开 Amiibo 选择器（无需等待游戏发起 NFC 扫描）。
+     */
+    public void showAmiiboDialog() {
+        if (mAmiiboDialog == null || !mAmiiboDialog.isAdded()) {
+            mAmiiboDialog = AmiiboDialog.newInstance();
+            mAmiiboDialog.show(getSupportFragmentManager(), "AmiiboDialog");
         }
     }
 

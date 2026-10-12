@@ -203,6 +203,7 @@
     <string name="default_value">默认</string>
     <string name="auto">自动</string>
     <string name="enable">启用</string>
+    <string name="enable_fullscreen">全屏</string>
     <string name="off">关闭</string>
     <string name="nearest">临近</string>
     <string name="linear">线性</string>

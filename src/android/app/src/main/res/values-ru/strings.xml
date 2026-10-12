@@ -203,6 +203,7 @@
     <string name="default_value">По умолч.</string>
     <string name="auto">Авто</string>
     <string name="enable">Вкл.</string>
+    <string name="enable_fullscreen">Fullscreen</string>
     <string name="off">Откл.</string>
     <string name="nearest">Ближайший</string>
     <string name="linear">Линейный</string>
